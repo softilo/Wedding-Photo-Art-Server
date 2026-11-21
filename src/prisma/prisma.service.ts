@@ -1,5 +1,10 @@
 import 'dotenv/config';
-import { Injectable, Logger, OnModuleDestroy, OnModuleInit } from '@nestjs/common';
+import {
+  Injectable,
+  Logger,
+  OnModuleDestroy,
+  OnModuleInit,
+} from '@nestjs/common';
 import { PrismaPg } from '@prisma/adapter-pg';
 import { Prisma, PrismaClient } from '../generated/prisma/client.js';
 import { Pool } from 'pg';
@@ -9,15 +14,31 @@ function createPrismaAdapter(): { pool: Pool; adapter: PrismaPg } {
   if (!connectionString && process.env.NODE_ENV !== 'test') {
     throw new Error('DATABASE_URL environment variable must be configured');
   }
+
+  const isServerless = Boolean(process.env.VERCEL);
+  const configuredMax = Number(process.env.PG_POOL_MAX);
+  const max =
+    Number.isFinite(configuredMax) && configuredMax > 0
+      ? Math.trunc(configuredMax)
+      : isServerless
+        ? 5
+        : 10;
+
   const pool = new Pool({
     connectionString: connectionString || 'postgresql://localhost:5432/test_db',
+    max,
+    connectionTimeoutMillis: 10_000,
+    idleTimeoutMillis: isServerless ? 10_000 : 30_000,
   });
   const adapter = new PrismaPg(pool);
   return { pool, adapter };
 }
 
 @Injectable()
-export class PrismaService extends PrismaClient implements OnModuleInit, OnModuleDestroy {
+export class PrismaService
+  extends PrismaClient
+  implements OnModuleInit, OnModuleDestroy
+{
   private readonly logger = new Logger(PrismaService.name);
   private readonly pool: Pool;
 
@@ -243,7 +264,9 @@ export class PrismaService extends PrismaClient implements OnModuleInit, OnModul
     const parsed = new URL(databaseUrl);
     const dbName = parsed.pathname.replace(/^\//, '');
     if (!dbName || !/^[a-zA-Z0-9_]+$/.test(dbName)) {
-      throw new Error(`Invalid target database name in DATABASE_URL: "${dbName}"`);
+      throw new Error(
+        `Invalid target database name in DATABASE_URL: "${dbName}"`,
+      );
     }
 
     const adminUrl = new URL(databaseUrl);

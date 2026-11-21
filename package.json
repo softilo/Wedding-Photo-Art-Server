@@ -6,8 +6,12 @@
   "private": true,
   "license": "UNLICENSED",
   "type": "module",
+  "engines": {
+    "node": "24.x"
+  },
   "scripts": {
     "build": "tsc -p tsconfig.build.json",
+    "vercel-build": "prisma generate && pnpm run build",
     "typecheck": "tsc --noEmit --incremental false",
     "deploy": "nest deploy",
     "format": "prettier --write \"src/**/*.ts\" \"test/**/*.ts\"",

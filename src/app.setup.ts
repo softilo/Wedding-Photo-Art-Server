@@ -1,5 +1,8 @@
 import { INestApplication, ValidationPipe } from '@nestjs/common';
+import { NestFactory } from '@nestjs/core';
 import type { NextFunction, Request, Response } from 'express';
+import { AppModule, ObserveInstrument } from './app.module.js';
+import { validateEnvironment } from './common/config/env.validation.js';
 import { PrismaExceptionFilter } from './common/filters/prisma-exception.filter.js';
 
 export function configureApp(app: INestApplication): void {
@@ -7,6 +10,9 @@ export function configureApp(app: INestApplication): void {
   const instance = httpAdapter?.getInstance?.();
   if (typeof instance?.disable === 'function') {
     instance.disable('x-powered-by');
+  }
+  if (typeof instance?.set === 'function') {
+    instance.set('trust proxy', 1);
   }
 
   app.use((_req: Request, res: Response, next: NextFunction) => {
@@ -19,7 +25,7 @@ export function configureApp(app: INestApplication): void {
 
   const configuredOrigins = (process.env.CORS_ORIGINS ?? '')
     .split(',')
-    .map((origin) => origin.trim())
+    .map((origin) => origin.trim().replace(/\/+$/, ''))
     .filter(Boolean);
   const allowedOrigins =
     configuredOrigins.length > 0
@@ -43,4 +49,16 @@ export function configureApp(app: INestApplication): void {
     }),
   );
   app.useGlobalFilters(new PrismaExceptionFilter());
+}
+
+/**
+ * Validates required environment variables and instantiates a fully configured NestJS app.
+ */
+export async function createConfiguredApp(): Promise<INestApplication> {
+  validateEnvironment();
+  const app = await NestFactory.create(AppModule, {
+    instrument: ObserveInstrument,
+  });
+  configureApp(app);
+  return app;
 }
