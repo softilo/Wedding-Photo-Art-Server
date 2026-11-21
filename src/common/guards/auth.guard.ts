@@ -49,6 +49,11 @@ export class AuthGuard implements CanActivate {
   ) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
+    const req = context.switchToHttp().getRequest<AuthenticatedRequest>();
+    if (req.method === 'OPTIONS') {
+      return true;
+    }
+
     const isPublic = this.reflector.getAllAndOverride<boolean>(IS_PUBLIC_KEY, [
       context.getHandler(),
       context.getClass(),
@@ -57,21 +62,26 @@ export class AuthGuard implements CanActivate {
       return true;
     }
 
-    const req = context.switchToHttp().getRequest<AuthenticatedRequest>();
     const authHeader = req.headers.authorization;
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      throw new UnauthorizedException('Missing or invalid Authorization header');
+      throw new UnauthorizedException(
+        'Missing or invalid Authorization header',
+      );
     }
 
     const token = authHeader.slice('Bearer '.length).trim();
     const secret = process.env.AUTH_SECRET;
     if (!secret || secret.length < 16) {
-      throw new UnauthorizedException('Authentication secret is not configured');
+      throw new UnauthorizedException(
+        'Authentication secret is not configured',
+      );
     }
 
     const payload = verifyAuthToken(token, secret);
     if (!payload) {
-      throw new UnauthorizedException('Invalid or expired authentication token');
+      throw new UnauthorizedException(
+        'Invalid or expired authentication token',
+      );
     }
 
     const [user, studio] = await Promise.all([
@@ -97,12 +107,17 @@ export class AuthGuard implements CanActivate {
       currency: studio?.currency ?? 'BDT',
     };
 
-    const requiredRoles = this.reflector.getAllAndOverride<UserRole[] | undefined>(ROLES_KEY, [
-      context.getHandler(),
-      context.getClass(),
-    ]);
-    if (requiredRoles && requiredRoles.length > 0 && !requiredRoles.includes(user.role)) {
-      throw new ForbiddenException('Insufficient role permissions for this action');
+    const requiredRoles = this.reflector.getAllAndOverride<
+      UserRole[] | undefined
+    >(ROLES_KEY, [context.getHandler(), context.getClass()]);
+    if (
+      requiredRoles &&
+      requiredRoles.length > 0 &&
+      !requiredRoles.includes(user.role)
+    ) {
+      throw new ForbiddenException(
+        'Insufficient role permissions for this action',
+      );
     }
 
     return true;

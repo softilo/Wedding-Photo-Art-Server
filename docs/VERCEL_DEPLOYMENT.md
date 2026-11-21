@@ -29,16 +29,23 @@ Set these in **Vercel Project Settings -> Environment Variables** (Production / 
 
 ## Database Migrations & Initial Seed
 
-Do **not** run database migrations or seeding inside HTTP requests. Run them from your CI/CD pipeline or local terminal (Node.js `>=20.19` / `24.x`) against a **direct** (non-pooled) PostgreSQL URL before serving production traffic:
+Do **not** run database migrations or seeding inside HTTP requests. Keep seed credentials in `.env.seed` (copy from `.env.seed.example`; gitignored and `.vercelignore`d) or pass them via environment variables when seeding from your CI/CD pipeline or local terminal (Node.js `>=20.19` / `24.x`) against a **direct** (non-pooled) PostgreSQL URL before serving production traffic:
 
 ```bash
 # Apply committed Prisma migrations
 DATABASE_URL="<direct-postgres-url>" pnpm exec prisma migrate deploy
 
-# Seed initial StudioSettings and OWNER account (idempotent; preserves existing owner edits)
+# Option 1: Configure .env.seed (see .env.seed.example) and run:
+DATABASE_URL="<direct-postgres-url>" pnpm run db:seed
+
+# Option 2: Pass seed credentials inline (idempotent; preserves existing owner edits)
 DATABASE_URL="<direct-postgres-url>" \
   SEED_STUDIO_NAME="Your Studio Name" \
+  SEED_STUDIO_PRESET="wedding-photography" \
+  SEED_STUDIO_TIMEZONE="Asia/Dhaka" \
+  SEED_STUDIO_CURRENCY="BDT" \
   SEED_ADMIN_EMAIL="owner@example.com" \
+  SEED_ADMIN_NAME="Studio Owner" \
   SEED_ADMIN_PASSWORD="replace-with-strong-password" \
   pnpm run db:seed
 ```

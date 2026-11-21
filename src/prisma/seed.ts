@@ -1,9 +1,10 @@
-import 'dotenv/config';
 import { StudioService } from '../modules/studio/studio.service.js';
 import { PrismaService } from './prisma.service.js';
 import { seedDefaultAdmin } from './seed-admin.js';
+import { loadSeedEnvironment } from './seed-env.js';
 
 async function main() {
+  loadSeedEnvironment();
   const prisma = new PrismaService();
   await prisma.onModuleInit();
 

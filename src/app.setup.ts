@@ -38,6 +38,8 @@ export function configureApp(app: INestApplication): void {
     app.enableCors({
       origin: allowedOrigins,
       credentials: true,
+      methods: ['GET', 'HEAD', 'PUT', 'PATCH', 'POST', 'DELETE', 'OPTIONS'],
+      optionsSuccessStatus: 204,
     });
   }
 

@@ -38,7 +38,11 @@ export class RateLimitGuard implements CanActivate {
     if (typeof forwarded === 'string' && forwarded.trim().length > 0) {
       return forwarded.split(',')[0].trim();
     }
-    if (Array.isArray(forwarded) && forwarded.length > 0 && forwarded[0].trim().length > 0) {
+    if (
+      Array.isArray(forwarded) &&
+      forwarded.length > 0 &&
+      forwarded[0].trim().length > 0
+    ) {
       return forwarded[0].trim();
     }
     return req.ip || req.socket?.remoteAddress || 'unknown';
@@ -54,16 +58,18 @@ export class RateLimitGuard implements CanActivate {
   }
 
   canActivate(context: ExecutionContext): boolean {
-    const policy = this.reflector.getAllAndOverride<RateLimitPolicy | undefined>(RATE_LIMIT_KEY, [
-      context.getHandler(),
-      context.getClass(),
-    ]);
+    const policy = this.reflector.getAllAndOverride<
+      RateLimitPolicy | undefined
+    >(RATE_LIMIT_KEY, [context.getHandler(), context.getClass()]);
     if (!policy || policy.limit <= 0 || policy.windowMs <= 0) {
       return true;
     }
 
     const http = context.switchToHttp();
     const req = http.getRequest<Request>();
+    if (req?.method === 'OPTIONS') {
+      return true;
+    }
     const res = http.getResponse<Response>();
     const now = Date.now();
     this.pruneExpired(now);
@@ -79,7 +85,10 @@ export class RateLimitGuard implements CanActivate {
     }
 
     if (existing.count >= policy.limit) {
-      const retryAfterSeconds = Math.max(1, Math.ceil((existing.resetAt - now) / 1000));
+      const retryAfterSeconds = Math.max(
+        1,
+        Math.ceil((existing.resetAt - now) / 1000),
+      );
       if (typeof res?.setHeader === 'function') {
         res.setHeader('Retry-After', String(retryAfterSeconds));
       }

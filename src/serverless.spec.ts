@@ -130,6 +130,8 @@ describe('Vercel serverless adapter', () => {
       expect(corsOptions).toEqual({
         origin: ['https://studio.example.com', 'http://localhost:3000'],
         credentials: true,
+        methods: ['GET', 'HEAD', 'PUT', 'PATCH', 'POST', 'DELETE', 'OPTIONS'],
+        optionsSuccessStatus: 204,
       });
     } finally {
       if (previousCors === undefined) {

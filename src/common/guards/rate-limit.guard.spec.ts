@@ -41,11 +41,32 @@ describe('RateLimitGuard', () => {
       throw new Error('Expected rate limit exception');
     } catch (err) {
       expect(err).toBeInstanceOf(HttpException);
-      expect((err as HttpException).getStatus()).toBe(HttpStatus.TOO_MANY_REQUESTS);
+      expect((err as HttpException).getStatus()).toBe(
+        HttpStatus.TOO_MANY_REQUESTS,
+      );
       expect(firstIp.headers['Retry-After']).toBeDefined();
     }
 
     // Separate IP keeps independent quota
     expect(guard.canActivate(secondIp.context as never)).toBe(true);
+  });
+
+  it('bypasses CORS preflight OPTIONS requests without consuming rate-limit quota', () => {
+    const reflector = {
+      getAllAndOverride: () => ({ limit: 1, windowMs: 60_000 }),
+    } as unknown as Reflector;
+
+    const guard = new RateLimitGuard(reflector);
+    const optionsCtx = {
+      getHandler: () => function loginHandler() {},
+      getClass: () => class MockController {},
+      switchToHttp: () => ({
+        getRequest: () => ({ method: 'OPTIONS', ip: '10.0.0.5', headers: {} }),
+        getResponse: () => ({ setHeader: () => undefined }),
+      }),
+    };
+
+    expect(guard.canActivate(optionsCtx as never)).toBe(true);
+    expect(guard.canActivate(optionsCtx as never)).toBe(true);
   });
 });
