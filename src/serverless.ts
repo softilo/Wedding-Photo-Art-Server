@@ -1,7 +1,21 @@
+import { createRequire } from 'node:module';
 import type { Request, Response } from 'express';
 import { createConfiguredApp } from './app.setup.js';
 
 export type ExpressRequestHandler = (req: Request, res: Response) => unknown;
+
+const requireFromModule = createRequire(import.meta.url);
+
+/**
+ * Statically references pdfkit's CJS standard font modules so serverless file tracers
+ * (`@vercel/nft`) include them via package exports without `includeFiles` symlink globs.
+ */
+export function preloadPdfkitStandardFonts(): void {
+  requireFromModule('pdfkit/standard-fonts/Helvetica');
+  requireFromModule('pdfkit/standard-fonts/HelveticaBold');
+  requireFromModule('pdfkit/standard-fonts/HelveticaOblique');
+  requireFromModule('pdfkit/standard-fonts/HelveticaBoldOblique');
+}
 
 /**
  * Restores the original client request path when Vercel rewrites traffic to `/api`.
@@ -99,6 +113,7 @@ export function createVercelDispatcher(
 }
 
 async function bootstrapServerlessHandler(): Promise<ExpressRequestHandler> {
+  preloadPdfkitStandardFonts();
   const app = await createConfiguredApp();
   await app.init();
   return app.getHttpAdapter().getInstance() as ExpressRequestHandler;

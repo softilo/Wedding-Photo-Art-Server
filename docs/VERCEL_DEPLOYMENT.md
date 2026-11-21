@@ -1,12 +1,12 @@
 # Deploying to Vercel
 
-This server is configured for **Vercel Functions** via pre-compiled TypeScript output (`dist/`) and an ESM serverless entrypoint (`api/index.mjs`). Compiling with `tsc` (`pnpm run vercel-build`) preserves NestJS decorator metadata (`emitDecoratorMetadata`) and ESM `.js` imports before Vercel packages `api/index.mjs`.
+This server is configured for **Vercel Functions** via pre-compiled TypeScript output (`dist/`) and an ESM serverless entrypoint (`api/index.mjs`). Compiling with `tsc` (`pnpm exec prisma generate && pnpm run build`) preserves NestJS decorator metadata (`emitDecoratorMetadata`) and ESM `.js` imports before Vercel packages `api/index.mjs`.
 
 ## Architecture Overview
 
-- `vercel.json`: Configures `pnpm install --frozen-lockfile`, runs `pnpm run vercel-build` (`prisma generate && pnpm run build`), uses `public/` as an empty static output directory (`public/.gitkeep`), includes `pdfkit` standard font files for PDF invoice/quote generation, and rewrites all incoming paths (`/(.*)`) to `/api?__vercel_path=$1`.
+- `vercel.json`: Configures `pnpm install --frozen-lockfile`, runs `pnpm exec prisma generate && pnpm run build`, uses `public/` as an empty static output directory (`public/.gitkeep`), sets `maxDuration: 30` on `api/index.mjs`, and rewrites all incoming paths (`/(.*)`) to `/api?__vercel_path=$1`.
 - `api/index.mjs`: Thin Vercel Node.js Function handler importing `handleVercelRequest` from `../dist/serverless.js`.
-- `src/serverless.ts`: Lazily initializes and caches the NestJS Express adapter (`app.init()` without `app.listen()`), restores original request paths from `__vercel_path`, and awaits response completion (`finish` / `close`).
+- `src/serverless.ts`: Lazily initializes and caches the NestJS Express adapter (`app.init()` without `app.listen()`), preloads `pdfkit` standard font CJS modules so Vercel traces them cleanly, restores original request paths from `__vercel_path`, and awaits response completion (`finish` / `close`).
 - `package.json`: Pins `"engines": { "node": "24.x" }` (required by Prisma 7 CLI and `@nestjs/observe`).
 - `src/prisma/prisma.service.ts`: Caps `pg.Pool` size conservatively in serverless mode (`PG_POOL_MAX`, defaulting to `5` when `VERCEL` is set).
 

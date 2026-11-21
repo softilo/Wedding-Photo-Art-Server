@@ -5,6 +5,7 @@ import { configureApp } from './app.setup.js';
 import {
   createVercelDispatcher,
   normalizeVercelRequestUrl,
+  preloadPdfkitStandardFonts,
 } from './serverless.js';
 
 function createMockResponse() {
@@ -91,6 +92,10 @@ describe('Vercel serverless adapter', () => {
     );
     expect(init).toHaveBeenCalledTimes(2);
     expect(expressHandler).toHaveBeenCalledTimes(1);
+  });
+
+  it('loads pdfkit standard font CJS modules cleanly for serverless tracing', () => {
+    expect(() => preloadPdfkitStandardFonts()).not.toThrow();
   });
 
   it('configures trust proxy and normalizes trailing slashes in CORS_ORIGINS', () => {

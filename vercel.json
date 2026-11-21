@@ -2,12 +2,11 @@
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "framework": null,
   "installCommand": "pnpm install --frozen-lockfile",
-  "buildCommand": "pnpm run vercel-build",
+  "buildCommand": "pnpm exec prisma generate && pnpm run build",
   "outputDirectory": "public",
   "functions": {
     "api/index.mjs": {
-      "maxDuration": 30,
-      "includeFiles": "node_modules/{pdfkit/js/standard-fonts/**,.pnpm/pdfkit@*/node_modules/pdfkit/js/standard-fonts/**}"
+      "maxDuration": 30
     }
   },
   "rewrites": [
