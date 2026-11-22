@@ -1,4 +1,3 @@
-import PDFDocument from 'pdfkit';
 import {
   formatPoishaExact,
   safeHexColor,
@@ -58,6 +57,7 @@ function formatDateTz(
  * Generates an A4 PDF Price Quote / Estimate Invoice suitable for sending to a client prior to booking.
  */
 export async function buildQuoteProposalPdf(data: QuoteProposalPdfData): Promise<Buffer> {
+  const { default: PDFDocument } = await import('pdfkit');
   return new Promise<Buffer>((resolve, reject) => {
     const doc = new PDFDocument({
       size: 'A4',

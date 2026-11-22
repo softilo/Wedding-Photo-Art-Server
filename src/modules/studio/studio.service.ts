@@ -16,7 +16,7 @@ import {
   validateLogoUrl,
   validateThemeTokens,
 } from '../../common/branding/branding-defaults.js';
-import { hashPassword } from '../../common/crypto/password.js';
+import { hashPassword, hashPasswordAsync } from '../../common/crypto/password.js';
 import { toJsonPoisha, toPoisha } from '../../common/money/money.js';
 import { isValidIanaTimezone } from '../../common/time/timezone.js';
 import { AddMemberDto, UpdateMemberDto } from './dto/add-member.dto.js';
@@ -43,14 +43,28 @@ export interface InitializeStudioOptions {
   ownerPassword: string;
 }
 
+export interface CachedStudioSettingsSummary {
+  publicBranding: PublicBrandingProjection;
+  advancePolicyType: AdvancePolicyType;
+  advancePolicyValue: bigint;
+  operationalPolicies: Prisma.JsonValue | null;
+  updatedAt: Date;
+}
+
+const STUDIO_SETTINGS_CACHE_TTL_MS = 30_000;
+
 @Injectable()
 export class StudioService {
-  private brandingCache: PublicBrandingProjection | null = null;
+  private settingsCache: {
+    value: CachedStudioSettingsSummary;
+    expiresAt: number;
+  } | null = null;
+  private inflightSettingsLoad: Promise<CachedStudioSettingsSummary> | null = null;
 
   constructor(private readonly prisma: PrismaService) {}
 
   clearBrandingCache(): void {
-    this.brandingCache = null;
+    this.settingsCache = null;
   }
 
   toPublicBrandingProjection(settings: StudioSettings | null): PublicBrandingProjection {
@@ -82,30 +96,53 @@ export class StudioService {
     };
   }
 
-  async getPublicBranding(): Promise<PublicBrandingProjection> {
-    if (this.brandingCache) {
-      return this.brandingCache;
+  async getCachedStudioSettingsSummary(): Promise<CachedStudioSettingsSummary> {
+    const now = Date.now();
+    if (this.settingsCache && this.settingsCache.expiresAt > now) {
+      return this.settingsCache.value;
+    }
+    if (this.inflightSettingsLoad) {
+      return this.inflightSettingsLoad;
     }
 
-    const settings = await this.prisma.studioSettings.findUnique({
-      where: { id: DEFAULT_STUDIO_ID },
-    });
-    const projection = this.toPublicBrandingProjection(settings);
-    this.brandingCache = projection;
-    return projection;
+    this.inflightSettingsLoad = (async () => {
+      const settings = await this.prisma.studioSettings.findUnique({
+        where: { id: DEFAULT_STUDIO_ID },
+      });
+      const summary: CachedStudioSettingsSummary = {
+        publicBranding: this.toPublicBrandingProjection(settings),
+        advancePolicyType: settings?.advancePolicyType ?? AdvancePolicyType.PERCENTAGE,
+        advancePolicyValue: settings?.advancePolicyValue ?? 20n,
+        operationalPolicies: settings?.operationalPolicies ?? null,
+        updatedAt: settings?.updatedAt ?? new Date(0),
+      };
+      this.settingsCache = {
+        value: summary,
+        expiresAt: Date.now() + STUDIO_SETTINGS_CACHE_TTL_MS,
+      };
+      return summary;
+    })();
+
+    try {
+      return await this.inflightSettingsLoad;
+    } finally {
+      this.inflightSettingsLoad = null;
+    }
+  }
+
+  async getPublicBranding(): Promise<PublicBrandingProjection> {
+    const summary = await this.getCachedStudioSettingsSummary();
+    return summary.publicBranding;
   }
 
   async getStudioSettings() {
-    const settings = await this.prisma.studioSettings.findUnique({
-      where: { id: DEFAULT_STUDIO_ID },
-    });
-    const projection = this.toPublicBrandingProjection(settings);
+    const summary = await this.getCachedStudioSettingsSummary();
     return {
-      ...projection,
-      advancePolicyType: settings?.advancePolicyType ?? AdvancePolicyType.PERCENTAGE,
-      advancePolicyValue: toJsonPoisha(settings?.advancePolicyValue ?? 20n),
-      operationalPolicies: settings?.operationalPolicies ?? null,
-      updatedAt: settings?.updatedAt ?? new Date(0),
+      ...summary.publicBranding,
+      advancePolicyType: summary.advancePolicyType,
+      advancePolicyValue: toJsonPoisha(summary.advancePolicyValue),
+      operationalPolicies: summary.operationalPolicies,
+      updatedAt: summary.updatedAt,
     };
   }
 
@@ -555,13 +592,15 @@ export class StudioService {
       throw new BadRequestException('password is required when creating a new user');
     }
 
+    const newPasswordHash = !existing ? await hashPasswordAsync(dto.password!) : undefined;
+
     return this.prisma.$transaction(async (tx) => {
       const user = !existing
         ? await tx.user.create({
             data: {
               email,
               name: trimmedName,
-              passwordHash: hashPassword(dto.password!),
+              passwordHash: newPasswordHash!,
               role: dto.role,
               isActive: dto.isActive ?? true,
             },

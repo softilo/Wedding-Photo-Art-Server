@@ -4,6 +4,7 @@
   "installCommand": "pnpm install --frozen-lockfile",
   "buildCommand": "pnpm exec prisma generate && pnpm run build",
   "outputDirectory": "public",
+  "regions": ["sin1"],
   "functions": {
     "api/index.mjs": {
       "maxDuration": 30

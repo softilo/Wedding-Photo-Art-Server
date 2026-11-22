@@ -639,6 +639,7 @@ export class QuotesService {
           versions: {
             include: { items: { orderBy: { sortOrder: 'asc' } } },
             orderBy: { versionNumber: 'desc' },
+            take: 1,
           },
         },
         orderBy: [{ createdAt: 'desc' }, { id: 'asc' }],

@@ -336,6 +336,8 @@ model PortfolioMedia {
   @@unique([eventId, assetId])
   @@unique([eventId, publicId])
   @@index([eventId, displayOrder])
+  @@index([status, resourceType, createdAt(sort: Desc)])
+  @@index([publicId])
   @@map("portfolio_media")
 }
 
@@ -387,6 +389,8 @@ model Inquiry {
   quotes    Quote[]
 
   @@index([status, requestedDate])
+  @@index([createdAt(sort: Desc), id])
+  @@index([clientPhone])
   @@map("inquiries")
 }
 
@@ -412,6 +416,9 @@ model Quote {
   booking   Booking?
 
   @@index([status])
+  @@index([inquiryId])
+  @@index([status, createdAt(sort: Desc)])
+  @@index([createdAt(sort: Desc), id])
   @@map("quotes")
 }
 
@@ -490,6 +497,8 @@ model Booking {
   deliverables         Deliverable[]
 
   @@index([status, eventDate])
+  @@index([status, createdAt(sort: Desc)])
+  @@index([createdAt(sort: Desc), id])
   @@map("bookings")
 }
 
@@ -549,6 +558,7 @@ model EventSession {
   assignments  Assignment[]
 
   @@index([startAt, endAt])
+  @@index([status, startAt, endAt])
   @@index([bookingId])
   @@map("event_sessions")
 }
@@ -609,6 +619,8 @@ model PaymentEntry {
 
   @@unique([type, idempotencyKey])
   @@index([bookingId, verificationState])
+  @@index([type, verificationState, createdAt])
+  @@index([createdAt(sort: Desc)])
   @@map("payment_entries")
 }
 
@@ -683,5 +695,6 @@ model Deliverable {
 
   @@index([bookingId])
   @@index([dueAt, reviewStatus])
+  @@index([assigneeUserId, reviewStatus, dueAt])
   @@map("deliverables")
 }

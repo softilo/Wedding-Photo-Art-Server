@@ -870,14 +870,25 @@ export class CatalogService {
       }
     }
 
-    await this.prisma.$transaction(
-      dto.mediaIds.map((mediaId, index) =>
-        this.prisma.portfolioMedia.update({
-          where: { id: mediaId },
-          data: { displayOrder: index },
-        }),
-      ),
-    );
+    if (typeof this.prisma.$executeRaw === 'function') {
+      const ids = dto.mediaIds;
+      const orders = dto.mediaIds.map((_, index) => index);
+      await this.prisma.$executeRaw`
+        UPDATE "portfolio_media" AS pm
+        SET "display_order" = v.ord, "updated_at" = NOW()
+        FROM UNNEST(${ids}::uuid[], ${orders}::int[]) AS v(id, ord)
+        WHERE pm."id" = v.id AND pm."event_id" = ${eventId}::uuid
+      `;
+    } else {
+      await this.prisma.$transaction(
+        dto.mediaIds.map((mediaId, index) =>
+          this.prisma.portfolioMedia.update({
+            where: { id: mediaId },
+            data: { displayOrder: index },
+          }),
+        ),
+      );
+    }
 
     return this.getAdminPortfolioEvent(eventId);
   }
@@ -1052,16 +1063,22 @@ export class CatalogService {
       },
     };
 
+    const canGroupMediaCounts = typeof this.prisma.portfolioMedia?.groupBy === 'function';
+
     const [items, total] = await Promise.all([
       this.prisma.portfolioEvent.findMany({
         where,
         include: {
           eventType: { select: { id: true, name: true, slug: true } },
           coverMedia: true,
-          media: {
-            where: { status: PortfolioMediaStatus.READY },
-            orderBy: [{ displayOrder: 'asc' }, { createdAt: 'asc' }],
-          },
+          ...(canGroupMediaCounts
+            ? {}
+            : {
+                media: {
+                  where: { status: PortfolioMediaStatus.READY },
+                  orderBy: [{ displayOrder: 'asc' }, { createdAt: 'asc' }],
+                },
+              }),
         },
         orderBy: [{ sortOrder: 'asc' }, { eventDate: 'desc' }, { publishedAt: 'desc' }],
         skip,
@@ -1070,8 +1087,47 @@ export class CatalogService {
       this.prisma.portfolioEvent.count({ where }),
     ]);
 
+    if (!canGroupMediaCounts || items.length === 0) {
+      return {
+        data: items.map((ev) => this.serializePortfolioEvent(ev)),
+        meta: { page, limit, total },
+      };
+    }
+
+    const eventIds = items.map((ev) => ev.id);
+    const mediaGroups = await this.prisma.portfolioMedia.groupBy({
+      by: ['eventId', 'resourceType'],
+      where: {
+        eventId: { in: eventIds },
+        status: PortfolioMediaStatus.READY,
+      },
+      _count: { _all: true },
+    });
+
+    const countMap = new Map<string, { photos: number; videos: number }>();
+    for (const grp of mediaGroups) {
+      const bucket = countMap.get(grp.eventId) ?? { photos: 0, videos: 0 };
+      if (grp.resourceType === PortfolioMediaType.IMAGE) {
+        bucket.photos = grp._count._all;
+      } else if (grp.resourceType === PortfolioMediaType.VIDEO) {
+        bucket.videos = grp._count._all;
+      }
+      countMap.set(grp.eventId, bucket);
+    }
+
     return {
-      data: items.map((ev) => this.serializePortfolioEvent(ev)),
+      data: items.map((ev) => {
+        const base = this.serializePortfolioEvent(ev);
+        const counts = countMap.get(ev.id) ?? { photos: 0, videos: 0 };
+        return {
+          ...base,
+          counts: {
+            photos: counts.photos,
+            videos: counts.videos,
+            totalReady: counts.photos + counts.videos,
+          },
+        };
+      }),
       meta: { page, limit, total },
     };
   }
@@ -1331,6 +1387,7 @@ export class CatalogService {
       this.prisma.portfolioMedia.findMany({
         where,
         orderBy: [{ createdAt: 'desc' }, { displayOrder: 'asc' }],
+        take: 250,
       }),
       this.prisma.portfolioMedia.count({ where: { resourceType: PortfolioMediaType.IMAGE } }),
       this.prisma.portfolioMedia.count({ where: { resourceType: PortfolioMediaType.VIDEO } }),

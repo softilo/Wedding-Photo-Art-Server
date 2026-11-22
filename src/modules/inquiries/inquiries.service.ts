@@ -99,70 +99,7 @@ export class InquiriesService {
     return result;
   }
 
-  /**
-   * Self-heals inquiry statuses so any inquiry whose quote was accepted or converted to a booking
-   * is guaranteed to be marked CONVERTED (and never stays stuck in NEW/QUOTED).
-   */
-  private async reconcileInquiryPipeline(): Promise<void> {
-    if (
-      typeof this.prisma.inquiry?.updateMany !== 'function' ||
-      typeof this.prisma.quote?.findMany !== 'function'
-    ) {
-      return;
-    }
-
-    // 1. Auto-link unlinked quotes that match an open inquiry by phone + eventTitle
-    const unlinkedQuotes = await this.prisma.quote.findMany({
-      where: { inquiryId: null },
-      select: { id: true, clientPhone: true, eventTitle: true, status: true, booking: { select: { id: true } } },
-      take: 100,
-    });
-    for (const q of unlinkedQuotes) {
-      const matchingInquiry = await this.prisma.inquiry.findFirst({
-        where: {
-          clientPhone: q.clientPhone,
-          eventTitle: { equals: q.eventTitle, mode: 'insensitive' },
-        },
-        select: { id: true },
-      });
-      if (matchingInquiry) {
-        await this.prisma.quote.update({
-          where: { id: q.id },
-          data: { inquiryId: matchingInquiry.id },
-        });
-      }
-    }
-
-    // 2. Any inquiry with an ACCEPTED quote or an existing Booking must be CONVERTED
-    await this.prisma.inquiry.updateMany({
-      where: {
-        status: { not: InquiryStatus.CONVERTED },
-        quotes: {
-          some: {
-            OR: [{ status: QuoteStatus.ACCEPTED }, { booking: { isNot: null } }],
-          },
-        },
-      },
-      data: { status: InquiryStatus.CONVERTED },
-    });
-
-    // 3. Any NEW/QUALIFIED inquiry with a DRAFT or SENT quote must be QUOTED
-    await this.prisma.inquiry.updateMany({
-      where: {
-        status: { in: [InquiryStatus.NEW, InquiryStatus.QUALIFIED] },
-        quotes: {
-          some: {
-            status: { in: [QuoteStatus.DRAFT, QuoteStatus.SENT] },
-          },
-        },
-      },
-      data: { status: InquiryStatus.QUOTED },
-    });
-  }
-
   async listInquiries(query: ListInquiriesQueryDto) {
-    await this.reconcileInquiryPipeline();
-
     const { page, limit, skip } = getPaginationParams(query);
     const where: Prisma.InquiryWhereInput = {
       status: query.status,
@@ -296,19 +233,19 @@ export class InquiriesService {
 
     return this.prisma.$transaction(async (tx) => {
       if (dto.status === InquiryStatus.CLOSED) {
-        const openQuotes = existing.quotes.filter(
-          (q) => q.status === QuoteStatus.DRAFT || q.status === QuoteStatus.SENT,
-        );
-        for (const q of openQuotes) {
+        const openQuoteIds = existing.quotes
+          .filter((q) => q.status === QuoteStatus.DRAFT || q.status === QuoteStatus.SENT)
+          .map((q) => q.id);
+        if (openQuoteIds.length > 0) {
           await tx.quoteVersion.updateMany({
             where: {
-              quoteId: q.id,
+              quoteId: { in: openQuoteIds },
               status: { in: [QuoteVersionStatus.DRAFT, QuoteVersionStatus.SENT] },
             },
             data: { status: QuoteVersionStatus.SUPERSEDED },
           });
-          await tx.quote.update({
-            where: { id: q.id },
+          await tx.quote.updateMany({
+            where: { id: { in: openQuoteIds } },
             data: { status: QuoteStatus.CANCELLED },
           });
         }

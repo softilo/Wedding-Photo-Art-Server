@@ -123,7 +123,7 @@ export class BookingsService {
             (r) => r.resource.userId && activeUserIds.has(r.resource.userId),
           );
 
-          for (const tpl of taskTemplates) {
+          const pendingAssignments = taskTemplates.map((tpl) => {
             const roleLower = tpl.roleLabel.toLowerCase();
             let assigneeUserId = params.actorId;
             let sessionId: string | null = null;
@@ -151,16 +151,27 @@ export class BookingsService {
               params.studioTimezone,
             );
             const offsetSign = tpl.defaultOffsetDays >= 0 ? '+' : '';
-            const created = await tx.assignment.create({
-              data: {
-                bookingId: params.bookingId,
-                sessionId,
-                assigneeUserId,
-                roleLabel: `${tpl.title} (${tpl.roleLabel})`,
-                notes: `Auto-scheduled target: ${targetDate} (${offsetSign}${tpl.defaultOffsetDays}d)`,
-              },
-            });
-            createdAssignments.push(created);
+            return {
+              bookingId: params.bookingId,
+              sessionId,
+              assigneeUserId,
+              roleLabel: `${tpl.title} (${tpl.roleLabel})`,
+              notes: `Auto-scheduled target: ${targetDate} (${offsetSign}${tpl.defaultOffsetDays}d)`,
+            };
+          });
+
+          if (typeof tx.assignment.createManyAndReturn === 'function') {
+            createdAssignments.push(
+              ...(await tx.assignment.createManyAndReturn({
+                data: pendingAssignments,
+              })),
+            );
+          } else {
+            createdAssignments.push(
+              ...(await Promise.all(
+                pendingAssignments.map((data) => tx.assignment.create({ data })),
+              )),
+            );
           }
         }
       }
@@ -225,7 +236,10 @@ export class BookingsService {
         policyValue,
       );
 
-      const ledger = await this.paymentsService.computeLedgerSummaryTx(tx, bookingId);
+      const ledger = await this.paymentsService.computeLedgerSummaryTx(tx, bookingId, {
+        booking,
+        studio,
+      });
       const verifiedReceipts = BigInt(ledger.verifiedReceiptsPoisha);
       const pendingReceipts = BigInt(ledger.pendingReceiptsPoisha);
 
@@ -620,7 +634,9 @@ export class BookingsService {
         },
       });
 
-      const ledger = await this.paymentsService.computeLedgerSummaryTx(tx, bookingId);
+      const ledger = await this.paymentsService.computeLedgerSummaryTx(tx, bookingId, {
+        booking: updated,
+      });
       return {
         booking: {
           ...updated,
@@ -666,6 +682,158 @@ export class BookingsService {
   }
 
   async getBooking(bookingId: string) {
+    const hasDirectPrisma = typeof this.prisma.booking?.findUnique === 'function';
+
+    if (hasDirectPrisma) {
+      const studioPromise =
+        typeof this.studioService?.getCachedStudioSettingsSummary === 'function'
+          ? this.studioService.getCachedStudioSettingsSummary().then((s) => ({
+              timezone: s.publicBranding.timezone,
+              advancePolicyType: s.advancePolicyType,
+              advancePolicyValue: s.advancePolicyValue,
+            }))
+          : this.prisma.studioSettings.findUnique({
+              where: { id: DEFAULT_STUDIO_ID },
+              select: {
+                timezone: true,
+                advancePolicyType: true,
+                advancePolicyValue: true,
+              },
+            });
+
+      const [booking, studio, scheduleAuditLogs, paymentEntries, priceAdjustments] =
+        await Promise.all([
+          this.prisma.booking.findUnique({
+            where: { id: bookingId },
+            include: {
+              eventType: { select: { id: true, name: true, slug: true } },
+              quote: { select: { id: true, reference: true } },
+              acceptedQuoteVersion: {
+                include: {
+                  items: { orderBy: { sortOrder: 'asc' } },
+                },
+              },
+              sessions: {
+                include: {
+                  reservations: {
+                    where: { status: ReservationStatus.RESERVED },
+                    include: {
+                      resource: { select: { id: true, name: true, type: true } },
+                    },
+                  },
+                },
+                orderBy: { startAt: 'asc' },
+              },
+              deliverables: { orderBy: { createdAt: 'asc' } },
+              assignments: {
+                include: {
+                  assignee: { select: { id: true, name: true, email: true, role: true } },
+                  session: { select: { id: true, title: true } },
+                },
+                orderBy: { createdAt: 'asc' },
+              },
+            },
+          }),
+          studioPromise,
+          this.prisma.scheduleAuditLog.findMany({
+            where: { bookingId },
+            orderBy: { createdAt: 'desc' },
+            take: 15,
+          }),
+          this.prisma.paymentEntry.findMany({
+            where: { bookingId },
+            select: { type: true, verificationState: true, amountPoisha: true },
+          }),
+          this.prisma.priceAdjustment.findMany({
+            where: { bookingId, status: AdjustmentStatus.APPROVED },
+            select: { type: true, amountPoisha: true },
+          }),
+        ]);
+
+      if (!booking) {
+        throw new NotFoundException('Booking not found');
+      }
+
+      if (
+        booking.deliverables.length === 0 &&
+        booking.status !== BookingStatus.CANCELLED
+      ) {
+        const autoSeeded = await this.prisma.$transaction((tx) =>
+          provisionDeliverablesFromQuoteAndTemplatesTx(tx, {
+            bookingId: booking.id,
+            eventTypeId: booking.eventTypeId,
+            eventDate: booking.eventDate,
+            quoteItems: booking.acceptedQuoteVersion?.items ?? [],
+          }),
+        );
+        if (autoSeeded.length > 0) {
+          booking.deliverables = autoSeeded;
+        }
+      }
+
+      const studioTimezone = studio?.timezone || 'Asia/Dhaka';
+      const ledger =
+        typeof this.paymentsService.computeLedgerSummaryFromData === 'function'
+          ? this.paymentsService.computeLedgerSummaryFromData(
+              booking,
+              studio,
+              paymentEntries,
+              priceAdjustments,
+            )
+          : await this.paymentsService.computeLedgerSummaryTx(
+              this.prisma as unknown as Prisma.TransactionClient,
+              bookingId,
+            );
+
+      const assigneeIds = [
+        ...new Set(
+          booking.deliverables
+            .map((d) => d.assigneeUserId)
+            .filter((id): id is string => Boolean(id)),
+        ),
+      ];
+      const assigneeUsers =
+        assigneeIds.length > 0
+          ? await this.prisma.user.findMany({
+              where: { id: { in: assigneeIds } },
+              select: { id: true, name: true },
+            })
+          : [];
+      const userNameMap = new Map(assigneeUsers.map((u) => [u.id, u.name]));
+
+      return {
+        ...booking,
+        agreedTotalPoisha: toJsonPoisha(booking.agreedTotalPoisha),
+        advancePolicyValueOverride:
+          booking.advancePolicyValueOverride !== null
+            ? toJsonPoisha(booking.advancePolicyValueOverride)
+            : null,
+        acceptedQuoteVersion: booking.acceptedQuoteVersion
+          ? {
+              ...booking.acceptedQuoteVersion,
+              subtotalPoisha: toJsonPoisha(booking.acceptedQuoteVersion.subtotalPoisha),
+              discountPoisha: toJsonPoisha(booking.acceptedQuoteVersion.discountPoisha),
+              totalPoisha: toJsonPoisha(booking.acceptedQuoteVersion.totalPoisha),
+              items: booking.acceptedQuoteVersion.items.map((item) => ({
+                ...item,
+                unitPricePoisha: toJsonPoisha(item.unitPricePoisha),
+                lineTotalPoisha: toJsonPoisha(item.lineTotalPoisha),
+              })),
+            }
+          : undefined,
+        sessions: booking.sessions.map((s) => ({
+          ...s,
+          agencyLocalDate: toAgencyLocalDate(s.startAt, studioTimezone),
+        })),
+        deliverables: booking.deliverables.map((d) => ({
+          ...d,
+          assigneeName: d.assigneeUserId ? (userNameMap.get(d.assigneeUserId) ?? null) : null,
+        })),
+        scheduleAuditLogs,
+        ledger,
+      };
+    }
+
     return this.prisma.$transaction(async (tx) => {
       const [booking, studio, scheduleAuditLogs] = await Promise.all([
         tx.booking.findUnique({
@@ -785,29 +953,47 @@ export class BookingsService {
     const now = new Date();
     const dueSoonCutoff = this.addDaysUtc(now, 5);
 
+    const studioPromise =
+      typeof this.studioService?.getCachedStudioSettingsSummary === 'function'
+        ? this.studioService.getCachedStudioSettingsSummary().then((s) => ({
+            advancePolicyType: s.advancePolicyType,
+            advancePolicyValue: s.advancePolicyValue,
+            timezone: s.publicBranding.timezone,
+            currency: s.publicBranding.currency,
+          }))
+        : this.prisma.studioSettings.findUnique({
+            where: { id: DEFAULT_STUDIO_ID },
+            select: {
+              advancePolicyType: true,
+              advancePolicyValue: true,
+              timezone: true,
+              currency: true,
+            },
+          });
+
     const [
       studio,
       pendingPayments,
       pendingBookings,
-      confirmedBookings,
+      unscheduledConfirmedBookings,
+      unassignedConfirmedBookings,
       urgentDeliverables,
     ] = await Promise.all([
-      this.prisma.studioSettings.findUnique({
-        where: { id: DEFAULT_STUDIO_ID },
-        select: {
-          advancePolicyType: true,
-          advancePolicyValue: true,
-          timezone: true,
-          currency: true,
-        },
-      }),
+      studioPromise,
       this.prisma.paymentEntry.findMany({
         where: {
           type: PaymentType.RECEIPT,
           verificationState: VerificationState.PENDING,
           booking: { status: { not: BookingStatus.CANCELLED } },
         },
-        include: {
+        select: {
+          id: true,
+          bookingId: true,
+          method: true,
+          amountPoisha: true,
+          currency: true,
+          transactionRef: true,
+          createdAt: true,
           booking: {
             select: { id: true, reference: true, eventTitle: true, clientName: true, status: true },
           },
@@ -817,7 +1003,15 @@ export class BookingsService {
       }),
       this.prisma.booking.findMany({
         where: { status: BookingStatus.PENDING_CONFIRMATION },
-        include: {
+        select: {
+          id: true,
+          reference: true,
+          eventTitle: true,
+          clientName: true,
+          eventDate: true,
+          agreedTotalPoisha: true,
+          advancePolicyTypeOverride: true,
+          advancePolicyValueOverride: true,
           paymentEntries: {
             where: {
               type: PaymentType.RECEIPT,
@@ -830,16 +1024,35 @@ export class BookingsService {
         take: 50,
       }),
       this.prisma.booking.findMany({
-        where: { status: BookingStatus.CONFIRMED },
-        include: {
+        where: {
+          status: BookingStatus.CONFIRMED,
           sessions: {
-            where: { status: { in: [SessionStatus.SCHEDULED, SessionStatus.COMPLETED] } },
-            select: { id: true },
+            none: { status: { in: [SessionStatus.SCHEDULED, SessionStatus.COMPLETED] } },
           },
+        },
+        select: {
+          id: true,
+          reference: true,
+          eventTitle: true,
+          clientName: true,
+          eventDate: true,
+        },
+        orderBy: { eventDate: 'asc' },
+        take: 50,
+      }),
+      this.prisma.booking.findMany({
+        where: {
+          status: BookingStatus.CONFIRMED,
           assignments: {
-            where: { status: { not: AssignmentStatus.CANCELLED } },
-            select: { id: true },
+            none: { status: { not: AssignmentStatus.CANCELLED } },
           },
+        },
+        select: {
+          id: true,
+          reference: true,
+          eventTitle: true,
+          clientName: true,
+          eventDate: true,
         },
         orderBy: { eventDate: 'asc' },
         take: 50,
@@ -848,8 +1061,14 @@ export class BookingsService {
         where: {
           reviewStatus: { not: DeliverableStatus.DELIVERED },
           dueAt: { lte: dueSoonCutoff },
+          booking: { status: { not: BookingStatus.CANCELLED } },
         },
-        include: {
+        select: {
+          id: true,
+          bookingId: true,
+          label: true,
+          dueAt: true,
+          reviewStatus: true,
           booking: {
             select: { id: true, reference: true, eventTitle: true, clientName: true, status: true },
           },
@@ -896,26 +1115,6 @@ export class BookingsService {
       }
     }
 
-    const unscheduledConfirmedBookings = confirmedBookings
-      .filter((b) => b.sessions.length === 0)
-      .map((b) => ({
-        id: b.id,
-        reference: b.reference,
-        eventTitle: b.eventTitle,
-        clientName: b.clientName,
-        eventDate: b.eventDate,
-      }));
-
-    const unassignedConfirmedBookings = confirmedBookings
-      .filter((b) => b.assignments.length === 0)
-      .map((b) => ({
-        id: b.id,
-        reference: b.reference,
-        eventTitle: b.eventTitle,
-        clientName: b.clientName,
-        eventDate: b.eventDate,
-      }));
-
     const serializedPendingPayments = pendingPayments.map((p) => ({
       id: p.id,
       bookingId: p.bookingId,
@@ -927,22 +1126,20 @@ export class BookingsService {
       booking: p.booking,
     }));
 
-    const activeDeliverables = urgentDeliverables
-      .filter((d) => d.booking.status !== BookingStatus.CANCELLED)
-      .map((d) => ({
-        id: d.id,
-        bookingId: d.bookingId,
-        label: d.label,
-        dueAt: d.dueAt,
-        reviewStatus: d.reviewStatus,
-        isOverdue: Boolean(d.dueAt && d.dueAt < now),
-        booking: {
-          id: d.booking.id,
-          reference: d.booking.reference,
-          eventTitle: d.booking.eventTitle,
-          clientName: d.booking.clientName,
-        },
-      }));
+    const activeDeliverables = urgentDeliverables.map((d) => ({
+      id: d.id,
+      bookingId: d.bookingId,
+      label: d.label,
+      dueAt: d.dueAt,
+      reviewStatus: d.reviewStatus,
+      isOverdue: Boolean(d.dueAt && d.dueAt < now),
+      booking: {
+        id: d.booking.id,
+        reference: d.booking.reference,
+        eventTitle: d.booking.eventTitle,
+        clientName: d.booking.clientName,
+      },
+    }));
 
     return {
       currency: studio?.currency || 'BDT',
@@ -965,36 +1162,107 @@ export class BookingsService {
   }
 
   async getBookingReceipt(bookingId: string) {
-    const [studio, receiptData] = await Promise.all([
-      this.studioService.getPublicBranding(),
-      this.prisma.$transaction(async (tx) => {
-        const booking = await tx.booking.findUnique({
-          where: { id: bookingId },
-          include: {
-            eventType: { select: { id: true, name: true } },
-            quote: { select: { id: true, reference: true } },
-            acceptedQuoteVersion: {
-              include: { items: { orderBy: { sortOrder: 'asc' } } },
-            },
-            paymentEntries: {
-              where: { verificationState: VerificationState.VERIFIED },
-              orderBy: { createdAt: 'asc' },
-            },
-            priceAdjustments: {
-              where: { status: AdjustmentStatus.APPROVED },
-              orderBy: { createdAt: 'asc' },
-            },
-          },
-        });
-        if (!booking) {
-          throw new NotFoundException('Booking not found');
-        }
-        const ledger = await this.paymentsService.computeLedgerSummaryTx(tx, bookingId);
-        return { booking, ledger };
-      }),
-    ]);
+    const hasDirectPrisma = typeof this.prisma.booking?.findUnique === 'function';
 
-    const { booking, ledger } = receiptData;
+    let studio: Awaited<ReturnType<StudioService['getPublicBranding']>>;
+    let booking;
+    let ledger;
+
+    if (hasDirectPrisma) {
+      const studioPromise =
+        typeof this.studioService?.getCachedStudioSettingsSummary === 'function'
+          ? this.studioService.getCachedStudioSettingsSummary()
+          : null;
+
+      const [studioSummary, brandingFallback, fetchedBooking, allPayments, approvedAdjustments] =
+        await Promise.all([
+          studioPromise,
+          studioPromise ? Promise.resolve(null) : this.studioService.getPublicBranding(),
+          this.prisma.booking.findUnique({
+            where: { id: bookingId },
+            include: {
+              eventType: { select: { id: true, name: true } },
+              quote: { select: { id: true, reference: true } },
+              acceptedQuoteVersion: {
+                include: { items: { orderBy: { sortOrder: 'asc' } } },
+              },
+            },
+          }),
+          this.prisma.paymentEntry.findMany({
+            where: { bookingId },
+            orderBy: { createdAt: 'asc' },
+          }),
+          this.prisma.priceAdjustment.findMany({
+            where: { bookingId, status: AdjustmentStatus.APPROVED },
+            orderBy: { createdAt: 'asc' },
+          }),
+        ]);
+
+      if (!fetchedBooking) {
+        throw new NotFoundException('Booking not found');
+      }
+
+      studio = studioSummary?.publicBranding ?? brandingFallback!;
+      const policy = studioSummary
+        ? {
+            advancePolicyType: studioSummary.advancePolicyType,
+            advancePolicyValue: studioSummary.advancePolicyValue,
+          }
+        : null;
+
+      ledger =
+        typeof this.paymentsService.computeLedgerSummaryFromData === 'function'
+          ? this.paymentsService.computeLedgerSummaryFromData(
+              fetchedBooking,
+              policy,
+              allPayments,
+              approvedAdjustments,
+            )
+          : await this.paymentsService.computeLedgerSummaryTx(
+              this.prisma as unknown as Prisma.TransactionClient,
+              bookingId,
+            );
+
+      booking = {
+        ...fetchedBooking,
+        paymentEntries: allPayments.filter(
+          (p) => p.verificationState === VerificationState.VERIFIED,
+        ),
+        priceAdjustments: approvedAdjustments,
+      };
+    } else {
+      const [fetchedStudio, receiptData] = await Promise.all([
+        this.studioService.getPublicBranding(),
+        this.prisma.$transaction(async (tx) => {
+          const b = await tx.booking.findUnique({
+            where: { id: bookingId },
+            include: {
+              eventType: { select: { id: true, name: true } },
+              quote: { select: { id: true, reference: true } },
+              acceptedQuoteVersion: {
+                include: { items: { orderBy: { sortOrder: 'asc' } } },
+              },
+              paymentEntries: {
+                where: { verificationState: VerificationState.VERIFIED },
+                orderBy: { createdAt: 'asc' },
+              },
+              priceAdjustments: {
+                where: { status: AdjustmentStatus.APPROVED },
+                orderBy: { createdAt: 'asc' },
+              },
+            },
+          });
+          if (!b) {
+            throw new NotFoundException('Booking not found');
+          }
+          const l = await this.paymentsService.computeLedgerSummaryTx(tx, bookingId);
+          return { booking: b, ledger: l };
+        }),
+      ]);
+      studio = fetchedStudio;
+      booking = receiptData.booking;
+      ledger = receiptData.ledger;
+    }
     return {
       studio,
       booking: {

@@ -100,42 +100,42 @@ export class NotificationsService {
     if (uniqueIds.length === 0) return;
 
     try {
-      for (const recipientId of uniqueIds) {
-        if (input.dedupeKey) {
-          await this.prisma.$executeRawUnsafe(
-            `INSERT INTO "notifications" (
-              "recipient_user_id", "category", "severity", "title", "body", "href", "entity_type", "entity_id", "dedupe_key"
-            )
-            VALUES ($1::uuid, $2, $3, $4, $5, $6, $7, $8, $9)
-            ON CONFLICT ("recipient_user_id", "dedupe_key") WHERE "dedupe_key" IS NOT NULL
-            DO NOTHING`,
-            recipientId,
-            input.category,
-            input.severity,
-            input.title,
-            input.body,
-            input.href ?? null,
-            input.entityType ?? null,
-            input.entityId ?? null,
-            input.dedupeKey,
-          );
-        } else {
-          await this.prisma.$executeRawUnsafe(
-            `INSERT INTO "notifications" (
-              "recipient_user_id", "category", "severity", "title", "body", "href", "entity_type", "entity_id"
-            )
-            VALUES ($1::uuid, $2, $3, $4, $5, $6, $7, $8)`,
-            recipientId,
-            input.category,
-            input.severity,
-            input.title,
-            input.body,
-            input.href ?? null,
-            input.entityType ?? null,
-            input.entityId ?? null,
-          );
-        }
-      }
+      await Promise.all(
+        uniqueIds.map((recipientId) =>
+          input.dedupeKey
+            ? this.prisma.$executeRawUnsafe(
+                `INSERT INTO "notifications" (
+                  "recipient_user_id", "category", "severity", "title", "body", "href", "entity_type", "entity_id", "dedupe_key"
+                )
+                VALUES ($1::uuid, $2, $3, $4, $5, $6, $7, $8, $9)
+                ON CONFLICT ("recipient_user_id", "dedupe_key") WHERE "dedupe_key" IS NOT NULL
+                DO NOTHING`,
+                recipientId,
+                input.category,
+                input.severity,
+                input.title,
+                input.body,
+                input.href ?? null,
+                input.entityType ?? null,
+                input.entityId ?? null,
+                input.dedupeKey,
+              )
+            : this.prisma.$executeRawUnsafe(
+                `INSERT INTO "notifications" (
+                  "recipient_user_id", "category", "severity", "title", "body", "href", "entity_type", "entity_id"
+                )
+                VALUES ($1::uuid, $2, $3, $4, $5, $6, $7, $8)`,
+                recipientId,
+                input.category,
+                input.severity,
+                input.title,
+                input.body,
+                input.href ?? null,
+                input.entityType ?? null,
+                input.entityId ?? null,
+              ),
+        ),
+      );
     } catch (err) {
       this.logger.warn(`Failed to dispatch notification: ${(err as Error)?.message ?? String(err)}`);
     }
@@ -203,7 +203,7 @@ export class NotificationsService {
     if (!this.hasRawQuerySupport()) return;
     const nowMs = Date.now();
     const lastSync = this.lastEscalationSync.get(userId) ?? 0;
-    if (nowMs - lastSync < 30_000) {
+    if (nowMs - lastSync < 120_000) {
       return;
     }
     this.lastEscalationSync.set(userId, nowMs);
@@ -215,121 +215,83 @@ export class NotificationsService {
     const minus12h = new Date(nowMs - 12 * 3600_000);
     const todayTag = now.toISOString().slice(0, 10);
 
+    const isOpsRole = role === UserRole.OWNER || role === UserRole.COORDINATOR;
+    const isFinanceRole = role === UserRole.OWNER || role === UserRole.ACCOUNTANT;
+
     try {
-      if (role === UserRole.OWNER || role === UserRole.COORDINATOR) {
-        const [unscheduledBookings, upcomingSessions, urgentDeliverables] = await Promise.all([
-          this.prisma.booking.findMany({
-            where: {
-              status: BookingStatus.CONFIRMED,
-              sessions: { none: { status: { not: SessionStatus.CANCELLED } } },
-            },
-            select: { id: true, reference: true, eventTitle: true, clientName: true },
-            take: 15,
-          }),
-          this.prisma.eventSession.findMany({
-            where: {
-              status: SessionStatus.SCHEDULED,
-              startAt: { gte: now, lte: plus72h },
-              booking: { status: { not: BookingStatus.CANCELLED } },
-            },
-            include: {
-              booking: { select: { id: true, reference: true, eventTitle: true } },
-              reservations: {
-                where: { status: ReservationStatus.RESERVED },
-                include: { resource: { select: { type: true } } },
+      const [
+        unscheduledBookings,
+        upcomingSessions,
+        urgentDeliverables,
+        pendingPayments,
+        myShoots24h,
+        myDeliverablesDue,
+      ] = await Promise.all([
+        isOpsRole
+          ? this.prisma.booking.findMany({
+              where: {
+                status: BookingStatus.CONFIRMED,
+                sessions: { none: { status: { not: SessionStatus.CANCELLED } } },
               },
-            },
-            take: 25,
-          }),
-          this.prisma.deliverable.findMany({
-            where: {
-              reviewStatus: { not: DeliverableStatus.DELIVERED },
-              dueAt: { lte: plus48h },
-              booking: { status: { not: BookingStatus.CANCELLED } },
-            },
-            include: {
-              booking: { select: { id: true, reference: true, eventTitle: true } },
-            },
-            take: 20,
-          }),
-        ]);
-
-        for (const b of unscheduledBookings) {
-          await this.notifyUsers([userId], {
-            category: 'SCHEDULE',
-            severity: 'ACTION',
-            title: `Shoot Slot Needed (${b.reference})`,
-            body: `Confirmed booking "${b.eventTitle}" for ${b.clientName} has no scheduled shoot session yet.`,
-            href: `/admin/bookings/${b.id}?section=schedule`,
-            entityType: 'Booking',
-            entityId: b.id,
-            dedupeKey: `BOOKING_UNSCHEDULED:${b.id}`,
-          });
-        }
-
-        for (const s of upcomingSessions) {
-          const crewCount = s.reservations.filter(
-            (r) => r.resource?.type === ResourceType.CREW,
-          ).length;
-          if (crewCount === 0) {
-            await this.notifyUsers([userId], {
-              category: 'SCHEDULE',
-              severity: 'URGENT',
-              title: `Unstaffed Shoot in <72h: ${s.title}`,
-              body: `${s.booking?.reference ?? 'Session'} starts soon with 0 shoot crew reserved.`,
-              href: `/admin/calendar`,
-              entityType: 'EventSession',
-              entityId: s.id,
-              dedupeKey: `SESSION_UNSTAFFED:${s.id}`,
-            });
-          }
-        }
-
-        for (const d of urgentDeliverables) {
-          const isOverdue = Boolean(d.dueAt && d.dueAt < now);
-          await this.notifyUsers([userId], {
-            category: 'DELIVERABLE',
-            severity: isOverdue ? 'URGENT' : 'ACTION',
-            title: `${isOverdue ? 'Overdue' : 'Due Within 48h'}: ${d.label}`,
-            body: `${d.booking.reference} — ${d.booking.eventTitle} needs file delivery.`,
-            href: `/admin/bookings/${d.bookingId}?section=deliverables`,
-            entityType: 'Deliverable',
-            entityId: d.id,
-            dedupeKey: `DELIVERABLE_DUE:${d.id}:${todayTag}`,
-          });
-        }
-      }
-
-      if (role === UserRole.OWNER || role === UserRole.ACCOUNTANT) {
-        const pendingPayments = await this.prisma.paymentEntry.findMany({
-          where: {
-            type: PaymentType.RECEIPT,
-            verificationState: VerificationState.PENDING,
-            createdAt: { lte: minus12h },
-            booking: { status: { not: BookingStatus.CANCELLED } },
-          },
-          include: {
-            booking: { select: { id: true, reference: true, clientName: true } },
-          },
-          take: 20,
-        });
-
-        for (const p of pendingPayments) {
-          await this.notifyUsers([userId], {
-            category: 'PAYMENT',
-            severity: 'ACTION',
-            title: `Unverified Payment Waiting (${p.booking.reference})`,
-            body: `${p.method} ${formatTk(p.amountPoisha, p.currency)} from ${p.booking.clientName} has been pending >12h.`,
-            href: `/admin/bookings/${p.bookingId}`,
-            entityType: 'PaymentEntry',
-            entityId: p.id,
-            dedupeKey: `PAYMENT_PENDING_REMINDER:${p.id}`,
-          });
-        }
-      }
-
-      // Upcoming 24h shoot reminder + assigned deliverable due alerts for Crew / Staff
-      const [myShoots24h, myDeliverablesDue] = await Promise.all([
+              select: { id: true, reference: true, eventTitle: true, clientName: true },
+              take: 15,
+            })
+          : Promise.resolve([]),
+        isOpsRole
+          ? this.prisma.eventSession.findMany({
+              where: {
+                status: SessionStatus.SCHEDULED,
+                startAt: { gte: now, lte: plus72h },
+                booking: { status: { not: BookingStatus.CANCELLED } },
+              },
+              select: {
+                id: true,
+                title: true,
+                booking: { select: { id: true, reference: true, eventTitle: true } },
+                reservations: {
+                  where: { status: ReservationStatus.RESERVED },
+                  select: { resource: { select: { type: true } } },
+                },
+              },
+              take: 25,
+            })
+          : Promise.resolve([]),
+        isOpsRole
+          ? this.prisma.deliverable.findMany({
+              where: {
+                reviewStatus: { not: DeliverableStatus.DELIVERED },
+                dueAt: { lte: plus48h },
+                booking: { status: { not: BookingStatus.CANCELLED } },
+              },
+              select: {
+                id: true,
+                bookingId: true,
+                label: true,
+                dueAt: true,
+                booking: { select: { id: true, reference: true, eventTitle: true } },
+              },
+              take: 20,
+            })
+          : Promise.resolve([]),
+        isFinanceRole
+          ? this.prisma.paymentEntry.findMany({
+              where: {
+                type: PaymentType.RECEIPT,
+                verificationState: VerificationState.PENDING,
+                createdAt: { lte: minus12h },
+                booking: { status: { not: BookingStatus.CANCELLED } },
+              },
+              select: {
+                id: true,
+                bookingId: true,
+                method: true,
+                amountPoisha: true,
+                currency: true,
+                booking: { select: { id: true, reference: true, clientName: true } },
+              },
+              take: 20,
+            })
+          : Promise.resolve([]),
         this.prisma.eventSession.findMany({
           where: {
             status: SessionStatus.SCHEDULED,
@@ -342,7 +304,10 @@ export class NotificationsService {
               },
             },
           },
-          include: {
+          select: {
+            id: true,
+            title: true,
+            location: true,
             booking: { select: { reference: true, eventTitle: true } },
           },
           take: 10,
@@ -354,38 +319,142 @@ export class NotificationsService {
             dueAt: { lte: plus48h },
             booking: { status: { not: BookingStatus.CANCELLED } },
           },
-          include: {
+          select: {
+            id: true,
+            label: true,
+            dueAt: true,
             booking: { select: { reference: true, eventTitle: true } },
           },
           take: 10,
         }),
       ]);
 
+      const batchRows: Array<{
+        category: NotificationCategory;
+        severity: NotificationSeverity;
+        title: string;
+        body: string;
+        href: string;
+        entity_type: string;
+        entity_id: string;
+        dedupe_key: string;
+      }> = [];
+
+      for (const b of unscheduledBookings) {
+        batchRows.push({
+          category: 'SCHEDULE',
+          severity: 'ACTION',
+          title: `Shoot Slot Needed (${b.reference})`,
+          body: `Confirmed booking "${b.eventTitle}" for ${b.clientName} has no scheduled shoot session yet.`,
+          href: `/admin/bookings/${b.id}?section=schedule`,
+          entity_type: 'Booking',
+          entity_id: b.id,
+          dedupe_key: `BOOKING_UNSCHEDULED:${b.id}`,
+        });
+      }
+
+      for (const s of upcomingSessions) {
+        const crewCount = s.reservations.filter(
+          (r) => r.resource?.type === ResourceType.CREW,
+        ).length;
+        if (crewCount === 0) {
+          batchRows.push({
+            category: 'SCHEDULE',
+            severity: 'URGENT',
+            title: `Unstaffed Shoot in <72h: ${s.title}`,
+            body: `${s.booking?.reference ?? 'Session'} starts soon with 0 shoot crew reserved.`,
+            href: `/admin/calendar`,
+            entity_type: 'EventSession',
+            entity_id: s.id,
+            dedupe_key: `SESSION_UNSTAFFED:${s.id}`,
+          });
+        }
+      }
+
+      for (const d of urgentDeliverables) {
+        const isOverdue = Boolean(d.dueAt && d.dueAt < now);
+        batchRows.push({
+          category: 'DELIVERABLE',
+          severity: isOverdue ? 'URGENT' : 'ACTION',
+          title: `${isOverdue ? 'Overdue' : 'Due Within 48h'}: ${d.label}`,
+          body: `${d.booking.reference} — ${d.booking.eventTitle} needs file delivery.`,
+          href: `/admin/bookings/${d.bookingId}?section=deliverables`,
+          entity_type: 'Deliverable',
+          entity_id: d.id,
+          dedupe_key: `DELIVERABLE_DUE:${d.id}:${todayTag}`,
+        });
+      }
+
+      for (const p of pendingPayments) {
+        batchRows.push({
+          category: 'PAYMENT',
+          severity: 'ACTION',
+          title: `Unverified Payment Waiting (${p.booking.reference})`,
+          body: `${p.method} ${formatTk(p.amountPoisha, p.currency)} from ${p.booking.clientName} has been pending >12h.`,
+          href: `/admin/bookings/${p.bookingId}`,
+          entity_type: 'PaymentEntry',
+          entity_id: p.id,
+          dedupe_key: `PAYMENT_PENDING_REMINDER:${p.id}`,
+        });
+      }
+
       for (const s of myShoots24h) {
-        await this.notifyUsers([userId], {
+        batchRows.push({
           category: 'SCHEDULE',
           severity: 'ACTION',
           title: `Upcoming Shoot (<24h): ${s.title}`,
           body: `${s.booking?.reference ? `${s.booking.reference} — ` : ''}${s.location ? `${s.location}` : 'Check Crew Dispatch for schedule details.'}`,
           href: '/staff',
-          entityType: 'EventSession',
-          entityId: s.id,
-          dedupeKey: `CREW_SHOOT_24H:${s.id}`,
+          entity_type: 'EventSession',
+          entity_id: s.id,
+          dedupe_key: `CREW_SHOOT_24H:${s.id}`,
         });
       }
 
       for (const d of myDeliverablesDue) {
         const isOverdue = Boolean(d.dueAt && d.dueAt < now);
-        await this.notifyUsers([userId], {
+        batchRows.push({
           category: 'DELIVERABLE',
           severity: isOverdue ? 'URGENT' : 'ACTION',
           title: `${isOverdue ? 'Overdue' : 'Due Soon'}: ${d.label}`,
           body: `${d.booking.reference} — ${d.booking.eventTitle}`,
           href: '/staff',
-          entityType: 'Deliverable',
-          entityId: d.id,
-          dedupeKey: `MY_DELIVERABLE_DUE:${d.id}:${todayTag}`,
+          entity_type: 'Deliverable',
+          entity_id: d.id,
+          dedupe_key: `MY_DELIVERABLE_DUE:${d.id}:${todayTag}`,
         });
+      }
+
+      if (batchRows.length > 0) {
+        await this.prisma.$executeRawUnsafe(
+          `INSERT INTO "notifications" (
+            "recipient_user_id", "category", "severity", "title", "body", "href", "entity_type", "entity_id", "dedupe_key"
+          )
+          SELECT
+            $1::uuid,
+            x."category",
+            x."severity",
+            x."title",
+            x."body",
+            x."href",
+            x."entity_type",
+            x."entity_id",
+            x."dedupe_key"
+          FROM jsonb_to_recordset($2::jsonb) AS x(
+            "category" text,
+            "severity" text,
+            "title" text,
+            "body" text,
+            "href" text,
+            "entity_type" text,
+            "entity_id" text,
+            "dedupe_key" text
+          )
+          ON CONFLICT ("recipient_user_id", "dedupe_key") WHERE "dedupe_key" IS NOT NULL
+          DO NOTHING`,
+          userId,
+          JSON.stringify(batchRows),
+        );
       }
     } catch (err) {
       this.logger.warn(`Failed syncing escalation alerts: ${(err as Error)?.message ?? String(err)}`);
@@ -395,13 +464,15 @@ export class NotificationsService {
   async listForUser(
     userId: string,
     role: UserRole,
-    options: { limit?: number; unreadOnly?: boolean } = {},
+    options: { limit?: number; unreadOnly?: boolean; sync?: boolean } = {},
   ) {
     if (!this.hasRawQuerySupport()) {
       return { unreadCount: 0, urgentUnreadCount: 0, items: [] as NotificationItem[] };
     }
 
-    await this.syncEscalationsForUser(userId, role);
+    if (options.sync !== false) {
+      await this.syncEscalationsForUser(userId, role);
+    }
 
     const limit = Math.min(Math.max(Number(options.limit) || 25, 1), 100);
     const unreadClause = options.unreadOnly ? 'AND "is_read" = false' : '';

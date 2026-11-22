@@ -14,10 +14,12 @@ export class NotificationsController {
     @CurrentActor() actor: RequestActor,
     @Query('limit') limit?: string,
     @Query('unreadOnly') unreadOnly?: string,
+    @Query('sync') sync?: string,
   ) {
     return this.notificationsService.listForUser(actor.userId, actor.role, {
       limit: limit ? Number(limit) : undefined,
       unreadOnly: unreadOnly === 'true',
+      sync: sync !== 'false',
     });
   }
 

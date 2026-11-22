@@ -141,7 +141,8 @@ export function createVercelDispatcher(
 }
 
 async function bootstrapServerlessHandler(): Promise<ExpressRequestHandler> {
-  preloadPdfkitStandardFonts();
+  // Keep `preloadPdfkitStandardFonts` statically referenced for `@vercel/nft` tracing
+  // without loading PDFKit font buffers during non-PDF serverless cold starts.
   const app = await createConfiguredApp();
   await app.init();
   return app.getHttpAdapter().getInstance() as ExpressRequestHandler;

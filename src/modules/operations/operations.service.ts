@@ -119,6 +119,7 @@ export class OperationsService {
         },
       },
       orderBy: { createdAt: 'desc' },
+      take: 100,
     });
   }
 
@@ -155,6 +156,7 @@ export class OperationsService {
           },
         },
         orderBy: { startAt: 'asc' },
+        take: 100,
       }),
     ]);
 
@@ -192,7 +194,7 @@ export class OperationsService {
           },
         },
         orderBy: [{ createdAt: 'desc' }],
-        take: 150,
+        take: 80,
       }),
       this.prisma.eventSession.findMany({
         where: {

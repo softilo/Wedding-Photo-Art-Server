@@ -3,6 +3,7 @@ import {
   ExecutionContext,
   ForbiddenException,
   Injectable,
+  Optional,
   SetMetadata,
   UnauthorizedException,
   createParamDecorator,
@@ -11,6 +12,7 @@ import { Reflector } from '@nestjs/core';
 import { UserRole } from '../../generated/prisma/client.js';
 import type { Request } from 'express';
 import { PrismaService } from '../../prisma/prisma.service.js';
+import { StudioService } from '../../modules/studio/studio.service.js';
 import { verifyAuthToken } from '../crypto/jwt.js';
 
 export const IS_PUBLIC_KEY = 'isPublic';
@@ -46,6 +48,7 @@ export class AuthGuard implements CanActivate {
   constructor(
     private readonly reflector: Reflector,
     private readonly prisma: PrismaService,
+    @Optional() private readonly studioService?: StudioService,
   ) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
@@ -89,10 +92,15 @@ export class AuthGuard implements CanActivate {
         where: { id: payload.sub },
         select: { id: true, email: true, role: true, isActive: true },
       }),
-      this.prisma.studioSettings.findUnique({
-        where: { id: 'default' },
-        select: { timezone: true, currency: true },
-      }),
+      this.studioService
+        ? this.studioService.getCachedStudioSettingsSummary().then((s) => ({
+            timezone: s.publicBranding.timezone,
+            currency: s.publicBranding.currency,
+          }))
+        : this.prisma.studioSettings.findUnique({
+            where: { id: 'default' },
+            select: { timezone: true, currency: true },
+          }),
     ]);
 
     if (!user || !user.isActive) {

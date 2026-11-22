@@ -40,7 +40,8 @@ export async function provisionDeliverablesFromQuoteAndTemplatesTx(
 ) {
   if (
     typeof tx.deliverable?.findMany !== 'function' ||
-    typeof tx.deliverable?.create !== 'function'
+    (typeof tx.deliverable?.create !== 'function' &&
+      typeof tx.deliverable?.createManyAndReturn !== 'function')
   ) {
     return [];
   }
@@ -90,7 +91,12 @@ export async function provisionDeliverablesFromQuoteAndTemplatesTx(
     }
   }
 
-  const createdDeliverables = [];
+  const pendingCreates: Array<{
+    bookingId: string;
+    label: string;
+    dueAt: Date;
+    notes: string;
+  }> = [];
 
   for (const item of params.quoteItems ?? []) {
     const label = formatQuoteItemDeliverableLabel(item.description, item.quantity);
@@ -99,17 +105,14 @@ export async function provisionDeliverablesFromQuoteAndTemplatesTx(
     }
     const matchedTemplate = templateByNormalized.get(normalizeDeliverableKey(label));
     const dueDays = matchedTemplate?.defaultDueDays ?? 14;
-    const created = await tx.deliverable.create({
-      data: {
-        bookingId: params.bookingId,
-        label,
-        dueAt: addDaysUtc(baseDate, dueDays),
-        notes: matchedTemplate
-          ? `Auto-created from quote item (+${dueDays}d rule)`
-          : 'Auto-created from quote item',
-      },
+    pendingCreates.push({
+      bookingId: params.bookingId,
+      label,
+      dueAt: addDaysUtc(baseDate, dueDays),
+      notes: matchedTemplate
+        ? `Auto-created from quote item (+${dueDays}d rule)`
+        : 'Auto-created from quote item',
     });
-    createdDeliverables.push(created);
     markSeen(label);
   }
 
@@ -118,17 +121,30 @@ export async function provisionDeliverablesFromQuoteAndTemplatesTx(
     if (!label || hasSeen(label)) {
       continue;
     }
-    const created = await tx.deliverable.create({
-      data: {
-        bookingId: params.bookingId,
-        label,
-        dueAt: addDaysUtc(baseDate, tpl.defaultDueDays),
-        notes: `Auto-created from template (+${tpl.defaultDueDays}d)`,
-      },
+    pendingCreates.push({
+      bookingId: params.bookingId,
+      label,
+      dueAt: addDaysUtc(baseDate, tpl.defaultDueDays),
+      notes: `Auto-created from template (+${tpl.defaultDueDays}d)`,
     });
-    createdDeliverables.push(created);
     markSeen(label);
   }
 
-  return createdDeliverables;
+  if (pendingCreates.length === 0) {
+    return [];
+  }
+
+  if (typeof tx.deliverable.createManyAndReturn === 'function') {
+    return tx.deliverable.createManyAndReturn({
+      data: pendingCreates,
+    });
+  }
+
+  return Promise.all(
+    pendingCreates.map((data) =>
+      tx.deliverable.create({
+        data,
+      }),
+    ),
+  );
 }

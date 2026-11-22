@@ -1,4 +1,3 @@
-import PDFDocument from 'pdfkit';
 import type { PublicBrandingProjection } from '../studio/studio.service.js';
 
 export type InvoiceStudioProjection = PublicBrandingProjection & {
@@ -145,6 +144,7 @@ function formatDateInTimezone(
 export async function buildBookingInvoicePdf(
   receipt: BookingInvoiceReceiptData,
 ): Promise<Buffer> {
+  const { default: PDFDocument } = await import('pdfkit');
   return new Promise<Buffer>((resolve, reject) => {
     const doc = new PDFDocument({
       size: 'A4',

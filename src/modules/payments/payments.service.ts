@@ -21,11 +21,11 @@ import {
 } from '../../generated/prisma/client.js';
 import { PrismaService } from '../../prisma/prisma.service.js';
 import { NotificationsService } from '../notifications/notifications.service.js';
+import { StudioService } from '../studio/studio.service.js';
 import { hashIdempotencyPayload } from '../../common/crypto/hash.js';
 import {
   computeRequiredAdvancePoisha,
   formatTk,
-  sumPoisha,
   toJsonPoisha,
   toPoisha,
 } from '../../common/money/money.js';
@@ -62,6 +62,7 @@ export class PaymentsService {
   constructor(
     private readonly prisma: PrismaService,
     @Optional() private readonly notifications?: NotificationsService,
+    @Optional() private readonly studioService?: StudioService,
   ) {}
 
   private serializeEntry(entry: PaymentEntry) {
@@ -84,30 +85,28 @@ export class PaymentsService {
     };
   }
 
-  async computeLedgerSummaryTx(
-    tx: Prisma.TransactionClient,
-    bookingId: string,
-  ): Promise<BookingLedgerSummary> {
-    const [booking, studio] = await Promise.all([
-      tx.booking.findUnique({
-        where: { id: bookingId },
-        select: {
-          id: true,
-          currency: true,
-          agreedTotalPoisha: true,
-          advancePolicyTypeOverride: true,
-          advancePolicyValueOverride: true,
-        },
-      }),
-      tx.studioSettings.findUnique({
-        where: { id: 'default' },
-        select: { advancePolicyType: true, advancePolicyValue: true },
-      }),
-    ]);
-    if (!booking) {
-      throw new NotFoundException('Booking not found');
-    }
-
+  computeLedgerSummaryFromData(
+    booking: {
+      id: string;
+      currency: string;
+      agreedTotalPoisha: bigint;
+      advancePolicyTypeOverride: AdvancePolicyType | null;
+      advancePolicyValueOverride: bigint | null;
+    },
+    studio: {
+      advancePolicyType?: AdvancePolicyType | null;
+      advancePolicyValue?: bigint | null;
+    } | null,
+    entries: Array<{
+      type: PaymentType;
+      verificationState: VerificationState;
+      amountPoisha: bigint;
+    }>,
+    adjustments: Array<{
+      type: AdjustmentType;
+      amountPoisha: bigint;
+    }>,
+  ): BookingLedgerSummary {
     const policyType =
       booking.advancePolicyTypeOverride ?? studio?.advancePolicyType ?? AdvancePolicyType.PERCENTAGE;
     const policyValue = booking.advancePolicyValueOverride ?? studio?.advancePolicyValue ?? 20n;
@@ -117,56 +116,33 @@ export class PaymentsService {
       policyValue,
     );
 
-    const [entries, adjustments] = await Promise.all([
-      tx.paymentEntry.findMany({
-        where: { bookingId },
-        select: { type: true, verificationState: true, amountPoisha: true },
-      }),
-      tx.priceAdjustment.findMany({
-        where: { bookingId, status: AdjustmentStatus.APPROVED },
-        select: { type: true, amountPoisha: true },
-      }),
-    ]);
+    let verifiedReceipts = 0n;
+    let pendingReceipts = 0n;
+    let completedRefunds = 0n;
+    for (const e of entries) {
+      if (e.type === PaymentType.RECEIPT) {
+        if (e.verificationState === VerificationState.VERIFIED) {
+          verifiedReceipts += e.amountPoisha;
+        } else if (e.verificationState === VerificationState.PENDING) {
+          pendingReceipts += e.amountPoisha;
+        }
+      } else if (
+        e.type === PaymentType.REFUND &&
+        e.verificationState === VerificationState.VERIFIED
+      ) {
+        completedRefunds += e.amountPoisha;
+      }
+    }
 
-    const verifiedReceipts = sumPoisha(
-      entries
-        .filter(
-          (e) =>
-            e.type === PaymentType.RECEIPT &&
-            e.verificationState === VerificationState.VERIFIED,
-        )
-        .map((e) => e.amountPoisha),
-    );
-    const pendingReceipts = sumPoisha(
-      entries
-        .filter(
-          (e) =>
-            e.type === PaymentType.RECEIPT &&
-            e.verificationState === VerificationState.PENDING,
-        )
-        .map((e) => e.amountPoisha),
-    );
-    const completedRefunds = sumPoisha(
-      entries
-        .filter(
-          (e) =>
-            e.type === PaymentType.REFUND &&
-            e.verificationState === VerificationState.VERIFIED,
-        )
-        .map((e) => e.amountPoisha),
-    );
-
-    const approvedCreditNotes = sumPoisha(
-      adjustments
-        .filter((a) => a.type === AdjustmentType.CREDIT_NOTE)
-        .map((a) => a.amountPoisha),
-    );
-
-    const chargeAdditions = sumPoisha(
-      adjustments
-        .filter((a) => a.type === AdjustmentType.CHARGE_ADJUSTMENT)
-        .map((a) => a.amountPoisha),
-    );
+    let approvedCreditNotes = 0n;
+    let chargeAdditions = 0n;
+    for (const a of adjustments) {
+      if (a.type === AdjustmentType.CREDIT_NOTE) {
+        approvedCreditNotes += a.amountPoisha;
+      } else if (a.type === AdjustmentType.CHARGE_ADJUSTMENT) {
+        chargeAdditions += a.amountPoisha;
+      }
+    }
 
     const effectiveAgreedCharge =
       booking.agreedTotalPoisha - approvedCreditNotes + chargeAdditions;
@@ -191,7 +167,120 @@ export class PaymentsService {
     };
   }
 
+  private async resolveStudioPolicy(tx?: Prisma.TransactionClient) {
+    if (this.studioService) {
+      const summary = await this.studioService.getCachedStudioSettingsSummary();
+      return {
+        currency: summary.publicBranding.currency,
+        timezone: summary.publicBranding.timezone,
+        advancePolicyType: summary.advancePolicyType,
+        advancePolicyValue: summary.advancePolicyValue,
+      };
+    }
+    const client = tx ?? this.prisma;
+    return client.studioSettings.findUnique({
+      where: { id: 'default' },
+      select: {
+        currency: true,
+        timezone: true,
+        advancePolicyType: true,
+        advancePolicyValue: true,
+      },
+    });
+  }
+
+  async computeLedgerSummaryTx(
+    tx: Prisma.TransactionClient,
+    bookingId: string,
+    preloaded?: {
+      booking?: {
+        id: string;
+        currency: string;
+        agreedTotalPoisha: bigint;
+        advancePolicyTypeOverride: AdvancePolicyType | null;
+        advancePolicyValueOverride: bigint | null;
+      };
+      studio?: {
+        advancePolicyType?: AdvancePolicyType | null;
+        advancePolicyValue?: bigint | null;
+      } | null;
+    },
+  ): Promise<BookingLedgerSummary> {
+    const [booking, studio, entries, adjustments] = await Promise.all([
+      preloaded?.booking
+        ? Promise.resolve(preloaded.booking)
+        : tx.booking.findUnique({
+            where: { id: bookingId },
+            select: {
+              id: true,
+              currency: true,
+              agreedTotalPoisha: true,
+              advancePolicyTypeOverride: true,
+              advancePolicyValueOverride: true,
+            },
+          }),
+      preloaded?.studio !== undefined
+        ? Promise.resolve(preloaded.studio)
+        : this.resolveStudioPolicy(tx),
+      tx.paymentEntry.findMany({
+        where: { bookingId },
+        select: { type: true, verificationState: true, amountPoisha: true },
+      }),
+      tx.priceAdjustment.findMany({
+        where: { bookingId, status: AdjustmentStatus.APPROVED },
+        select: { type: true, amountPoisha: true },
+      }),
+    ]);
+
+    if (!booking) {
+      throw new NotFoundException('Booking not found');
+    }
+
+    return this.computeLedgerSummaryFromData(booking, studio, entries, adjustments);
+  }
+
   async getBookingLedger(bookingId: string) {
+    if (typeof this.prisma.booking?.findUnique === 'function') {
+      const [booking, studio, entries, adjustments] = await Promise.all([
+        this.prisma.booking.findUnique({
+          where: { id: bookingId },
+          select: {
+            id: true,
+            currency: true,
+            agreedTotalPoisha: true,
+            advancePolicyTypeOverride: true,
+            advancePolicyValueOverride: true,
+          },
+        }),
+        this.resolveStudioPolicy(),
+        this.prisma.paymentEntry.findMany({
+          where: { bookingId },
+          orderBy: { createdAt: 'asc' },
+        }),
+        this.prisma.priceAdjustment.findMany({
+          where: { bookingId },
+          orderBy: { createdAt: 'asc' },
+        }),
+      ]);
+
+      if (!booking) {
+        throw new NotFoundException('Booking not found');
+      }
+
+      const approvedAdjustments = adjustments.filter(
+        (a) => a.status === AdjustmentStatus.APPROVED,
+      );
+
+      return {
+        summary: this.computeLedgerSummaryFromData(booking, studio, entries, approvedAdjustments),
+        entries: entries.map((e) => this.serializeEntry(e)),
+        adjustments: adjustments.map((a) => ({
+          ...a,
+          amountPoisha: toJsonPoisha(a.amountPoisha),
+        })),
+      };
+    }
+
     return this.prisma.$transaction(async (tx) => {
       const summary = await this.computeLedgerSummaryTx(tx, bookingId);
       const [entries, adjustments] = await Promise.all([
@@ -898,15 +987,7 @@ export class PaymentsService {
   }
 
   async getFinancialReport(query: FinancialReportQueryDto = {}) {
-    const studio = await this.prisma.studioSettings.findUnique({
-      where: { id: 'default' },
-      select: {
-        currency: true,
-        timezone: true,
-        advancePolicyType: true,
-        advancePolicyValue: true,
-      },
-    });
+    const studio = await this.resolveStudioPolicy();
 
     const currency = studio?.currency || 'BDT';
     const timezone = studio?.timezone || 'Asia/Dhaka';
@@ -966,11 +1047,30 @@ export class PaymentsService {
     const [bookings, paymentEntries, expenseEntries] = await Promise.all([
       this.prisma.booking.findMany({
         where: bookingWhere,
-        include: {
+        select: {
+          id: true,
+          reference: true,
+          eventTitle: true,
+          clientName: true,
+          clientPhone: true,
+          eventDate: true,
+          status: true,
+          createdAt: true,
+          agreedTotalPoisha: true,
+          advancePolicyTypeOverride: true,
+          advancePolicyValueOverride: true,
           eventType: { select: { id: true, name: true, slug: true } },
-          paymentEntries: true,
+          paymentEntries: {
+            select: {
+              type: true,
+              verificationState: true,
+              method: true,
+              amountPoisha: true,
+            },
+          },
           priceAdjustments: {
             where: { status: AdjustmentStatus.APPROVED },
+            select: { type: true, amountPoisha: true },
           },
         },
         orderBy: [{ createdAt: 'desc' }, { id: 'asc' }],
@@ -1076,51 +1176,37 @@ export class PaymentsService {
     };
 
     const receivables = bookings.map((b) => {
-      const verifiedReceipts = sumPoisha(
-        b.paymentEntries
-          .filter(
-            (e) =>
-              e.type === PaymentType.RECEIPT &&
-              e.verificationState === VerificationState.VERIFIED &&
-              (!query.method || e.method === query.method),
-          )
-          .map((e) => e.amountPoisha),
-      );
-      const pendingReceipts = sumPoisha(
-        b.paymentEntries
-          .filter(
-            (e) =>
-              e.type === PaymentType.RECEIPT &&
-              e.verificationState === VerificationState.PENDING &&
-              (!query.method || e.method === query.method),
-          )
-          .map((e) => e.amountPoisha),
-      );
-      const completedRefunds = sumPoisha(
-        b.paymentEntries
-          .filter(
-            (e) =>
-              e.type === PaymentType.REFUND &&
-              e.verificationState === VerificationState.VERIFIED &&
-              (!query.method || e.method === query.method),
-          )
-          .map((e) => e.amountPoisha),
-      );
-      const creditNotes = sumPoisha(
-        b.priceAdjustments
-          .filter((a) => a.type === AdjustmentType.CREDIT_NOTE)
-          .map((a) => a.amountPoisha),
-      );
-      const chargeAdjustments = sumPoisha(
-        b.priceAdjustments
-          .filter((a) => a.type === AdjustmentType.CHARGE_ADJUSTMENT)
-          .map((a) => a.amountPoisha),
-      );
-      const reversals = sumPoisha(
-        b.priceAdjustments
-          .filter((a) => a.type === AdjustmentType.REVERSAL)
-          .map((a) => a.amountPoisha),
-      );
+      let verifiedReceipts = 0n;
+      let pendingReceipts = 0n;
+      let completedRefunds = 0n;
+      for (const e of b.paymentEntries) {
+        if (query.method && e.method !== query.method) continue;
+        if (e.type === PaymentType.RECEIPT) {
+          if (e.verificationState === VerificationState.VERIFIED) {
+            verifiedReceipts += e.amountPoisha;
+          } else if (e.verificationState === VerificationState.PENDING) {
+            pendingReceipts += e.amountPoisha;
+          }
+        } else if (
+          e.type === PaymentType.REFUND &&
+          e.verificationState === VerificationState.VERIFIED
+        ) {
+          completedRefunds += e.amountPoisha;
+        }
+      }
+
+      let creditNotes = 0n;
+      let chargeAdjustments = 0n;
+      let reversals = 0n;
+      for (const a of b.priceAdjustments) {
+        if (a.type === AdjustmentType.CREDIT_NOTE) {
+          creditNotes += a.amountPoisha;
+        } else if (a.type === AdjustmentType.CHARGE_ADJUSTMENT) {
+          chargeAdjustments += a.amountPoisha;
+        } else if (a.type === AdjustmentType.REVERSAL) {
+          reversals += a.amountPoisha;
+        }
+      }
 
       const effectiveChargeRaw =
         b.agreedTotalPoisha - creditNotes + chargeAdjustments;

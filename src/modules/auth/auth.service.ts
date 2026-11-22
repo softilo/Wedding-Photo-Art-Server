@@ -1,15 +1,27 @@
-import { Injectable, UnauthorizedException } from '@nestjs/common';
+import { Injectable, Optional, UnauthorizedException } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service.js';
 import { SOFTILO_DEFAULT_BRANDING } from '../../common/branding/branding-defaults.js';
-import { verifyPassword } from '../../common/crypto/password.js';
+import { verifyPasswordAsync } from '../../common/crypto/password.js';
 import { signAuthToken } from '../../common/crypto/jwt.js';
+import { StudioService } from '../studio/studio.service.js';
 import { LoginDto } from './dto/login.dto.js';
 
 @Injectable()
 export class AuthService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    @Optional() private readonly studioService?: StudioService,
+  ) {}
 
   private async getStudioSummary() {
+    if (this.studioService) {
+      const summary = await this.studioService.getCachedStudioSettingsSummary();
+      return {
+        name: summary.publicBranding.displayName,
+        timezone: summary.publicBranding.timezone,
+        currency: summary.publicBranding.currency,
+      };
+    }
     const studio = await this.prisma.studioSettings.findUnique({
       where: { id: 'default' },
       select: { name: true, timezone: true, currency: true },
@@ -34,7 +46,7 @@ export class AuthService {
       },
     });
 
-    if (!user || !user.isActive || !verifyPassword(dto.password, user.passwordHash)) {
+    if (!user || !user.isActive || !(await verifyPasswordAsync(dto.password, user.passwordHash))) {
       throw new UnauthorizedException('Invalid email or password');
     }
 
