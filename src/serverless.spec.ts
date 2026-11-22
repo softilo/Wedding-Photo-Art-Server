@@ -1,11 +1,17 @@
+import { Controller, Get, Query } from '@nestjs/common';
+import { Test } from '@nestjs/testing';
+import { IsOptional, IsString } from 'class-validator';
 import { EventEmitter } from 'node:events';
+import { createServer } from 'node:http';
 import type { Request, Response } from 'express';
+import request from 'supertest';
 import { describe, expect, it, vi } from 'vitest';
 import { configureApp } from './app.setup.js';
 import {
   createVercelDispatcher,
   normalizeVercelRequestUrl,
   preloadPdfkitStandardFonts,
+  prepareVercelRequest,
 } from './serverless.js';
 
 function createMockResponse() {
@@ -140,5 +146,79 @@ describe('Vercel serverless adapter', () => {
         process.env.CORS_ORIGINS = previousCors;
       }
     }
+  });
+
+  it('clears Vercel own req.query getter so strict DTO ValidationPipe never sees __vercel_path', async () => {
+    class SampleQueryDto {
+      @IsOptional()
+      @IsString()
+      status?: string;
+    }
+
+    @Controller('quotes')
+    class SampleQuotesController {
+      @Get()
+      list(@Query() query: SampleQueryDto) {
+        return { ok: true, status: query.status ?? null };
+      }
+    }
+
+    const moduleRef = await Test.createTestingModule({
+      controllers: [SampleQuotesController],
+    }).compile();
+    const app = moduleRef.createNestApplication();
+    configureApp(app);
+    await app.init();
+
+    try {
+      const expressHandler = app.getHttpAdapter().getInstance() as (
+        req: Request,
+        res: Response,
+      ) => unknown;
+      const dispatch = createVercelDispatcher(async () => expressHandler);
+
+      const server = createServer((req, res) => {
+        // Mimic @vercel/node's setLazyProp(req, 'query', ...) before handler runs
+        Object.defineProperty(req, 'query', {
+          configurable: true,
+          enumerable: true,
+          get() {
+            return { __vercel_path: 'quotes', status: 'DRAFT' };
+          },
+        });
+        void dispatch(req as unknown as Request, res as unknown as Response);
+      });
+
+      const response = await request(server)
+        .get('/api?__vercel_path=quotes&status=DRAFT')
+        .expect(200);
+
+      expect(response.body).toEqual({
+        ok: true,
+        status: 'DRAFT',
+      });
+    } finally {
+      await app.close();
+    }
+  });
+
+  it('strips __vercel_path safely even when req.query is non-configurable', () => {
+    const req = {
+      url: '/api?__vercel_path=quotes&status=SENT',
+    } as unknown as Request;
+    const queryObj: Record<string, unknown> = {
+      __vercel_path: 'quotes',
+      status: 'SENT',
+    };
+    Object.defineProperty(req, 'query', {
+      configurable: false,
+      enumerable: true,
+      value: queryObj,
+    });
+
+    prepareVercelRequest(req);
+
+    expect(req.url).toBe('/quotes?status=SENT');
+    expect(queryObj).toEqual({ status: 'SENT' });
   });
 });

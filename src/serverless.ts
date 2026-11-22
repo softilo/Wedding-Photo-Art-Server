@@ -20,13 +20,17 @@ export function preloadPdfkitStandardFonts(): void {
 /**
  * Restores the original client request path when Vercel rewrites traffic to `/api`.
  */
-export function normalizeVercelRequestUrl(rawUrl: string | undefined): string {
+export function normalizeVercelRequestUrl(
+  rawUrl: string | undefined,
+  fallbackRewrittenPath?: string,
+): string {
   if (!rawUrl) {
     return '/';
   }
 
   const parsed = new URL(rawUrl, 'http://localhost');
-  const rewrittenPath = parsed.searchParams.get('__vercel_path');
+  const rewrittenPath =
+    parsed.searchParams.get('__vercel_path') ?? fallbackRewrittenPath ?? null;
   if (rewrittenPath === null) {
     return rawUrl;
   }
@@ -45,6 +49,30 @@ export function normalizeVercelRequestUrl(rawUrl: string | undefined): string {
   }
 
   return `${parsed.pathname}${querySuffix}`;
+}
+
+/**
+ * Strips Vercel's own `req.query` lazy getter/cache (which includes `__vercel_path`
+ * and shadows Express 5's prototype `req.query` getter) after normalizing `req.url`.
+ */
+export function prepareVercelRequest(req: Request): void {
+  const rawReq = req as Request & Record<string, unknown>;
+  const existingQuery =
+    rawReq.query && typeof rawReq.query === 'object'
+      ? (rawReq.query as Record<string, unknown>)
+      : undefined;
+  const fallbackRewrittenPath =
+    typeof existingQuery?.__vercel_path === 'string'
+      ? existingQuery.__vercel_path
+      : undefined;
+
+  req.url = normalizeVercelRequestUrl(req.url, fallbackRewrittenPath);
+
+  if (Object.prototype.hasOwnProperty.call(rawReq, 'query')) {
+    if (!Reflect.deleteProperty(rawReq, 'query') && existingQuery) {
+      delete existingQuery.__vercel_path;
+    }
+  }
 }
 
 /**
@@ -67,7 +95,7 @@ export function createVercelDispatcher(
   };
 
   return async (req: Request, res: Response): Promise<void> => {
-    req.url = normalizeVercelRequestUrl(req.url);
+    prepareVercelRequest(req);
     const handler = await getHandler();
 
     await new Promise<void>((resolve, reject) => {
