@@ -722,3 +722,66 @@ model ClientReview {
   @@index([imagePublicId])
   @@map("client_reviews")
 }
+
+model StudioServiceCard {
+  id            String   @id @default(uuid()) @db.Uuid
+  title         String
+  description   String   @default("")
+  imageUrl      String?  @map("image_url")
+  imageAssetId  String?  @map("image_asset_id")
+  imagePublicId String?  @map("image_public_id")
+  imageFormat   String?  @map("image_format")
+  imageBytes    Int?     @map("image_bytes")
+  imageWidth    Int?     @map("image_width")
+  imageHeight   Int?     @map("image_height")
+  showOnHome    Boolean  @default(true) @map("show_on_home")
+  isActive      Boolean  @default(true) @map("is_active")
+  sortOrder     Int      @default(0) @map("sort_order")
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+
+  @@index([isActive, showOnHome, sortOrder, createdAt])
+  @@index([imagePublicId])
+  @@map("studio_services")
+}
+
+model StudioAboutProfile {
+  id                     String   @id @default("default")
+  servicesSectionEnabled Boolean  @default(true) @map("services_section_enabled")
+  storyEyebrow           String   @map("story_eyebrow")
+  storyTitle             String   @map("story_title")
+  storyLead              String   @map("story_lead")
+  storyBody              String   @map("story_body")
+  updatedAt              DateTime @updatedAt @map("updated_at")
+
+  @@map("studio_about_profile")
+}
+
+model StudioTeamMember {
+  id            String   @id @default(uuid()) @db.Uuid
+  name          String
+  subtitle      String?
+  role          String   @default("")
+  specialty     String   @default("")
+  bio           String   @default("")
+  quote         String?
+  phone         String?
+  instagram     String?
+  location      String?
+  isFeatured    Boolean  @default(false) @map("is_featured")
+  imageUrl      String?  @map("image_url")
+  imageAssetId  String?  @map("image_asset_id")
+  imagePublicId String?  @map("image_public_id")
+  imageFormat   String?  @map("image_format")
+  imageBytes    Int?     @map("image_bytes")
+  imageWidth    Int?     @map("image_width")
+  imageHeight   Int?     @map("image_height")
+  isActive      Boolean  @default(true) @map("is_active")
+  sortOrder     Int      @default(0) @map("sort_order")
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+
+  @@index([isActive, isFeatured(sort: Desc), sortOrder, createdAt])
+  @@index([imagePublicId])
+  @@map("studio_team_members")
+}

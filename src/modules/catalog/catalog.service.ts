@@ -1053,7 +1053,15 @@ export class CatalogService {
   async listPublicPortfolioEvents(query: PaginationQueryDto) {
     const { page, limit, skip } = getPaginationParams(query);
     const where: Prisma.PortfolioEventWhereInput = {
-      slug: { not: 'studio-media-gallery' },
+      slug: {
+        notIn: [
+          'studio-media-gallery',
+          'studio-hero-slider',
+          'studio-editorial-grid',
+          'studio-services-showcase',
+          'studio-about-team',
+        ],
+      },
       status: PortfolioEventStatus.PUBLISHED,
       coverMedia: {
         is: {
@@ -1382,15 +1390,33 @@ export class CatalogService {
   }
 
   async listGalleryMedia(resourceType?: PortfolioMediaType) {
-    const where: Prisma.PortfolioMediaWhereInput = resourceType ? { resourceType } : {};
+    const excludedSystemSlugs = [
+      'studio-hero-slider',
+      'studio-editorial-grid',
+      'studio-services-showcase',
+      'studio-about-team',
+    ];
+    const galleryScopeWhere: Prisma.PortfolioMediaWhereInput = {
+      event: {
+        slug: { notIn: excludedSystemSlugs },
+      },
+    };
+    const where: Prisma.PortfolioMediaWhereInput = resourceType
+      ? { ...galleryScopeWhere, resourceType }
+      : galleryScopeWhere;
+
     const [items, photoCount, videoCount] = await Promise.all([
       this.prisma.portfolioMedia.findMany({
         where,
         orderBy: [{ createdAt: 'desc' }, { displayOrder: 'asc' }],
         take: 250,
       }),
-      this.prisma.portfolioMedia.count({ where: { resourceType: PortfolioMediaType.IMAGE } }),
-      this.prisma.portfolioMedia.count({ where: { resourceType: PortfolioMediaType.VIDEO } }),
+      this.prisma.portfolioMedia.count({
+        where: { ...galleryScopeWhere, resourceType: PortfolioMediaType.IMAGE },
+      }),
+      this.prisma.portfolioMedia.count({
+        where: { ...galleryScopeWhere, resourceType: PortfolioMediaType.VIDEO },
+      }),
     ]);
 
     return {
@@ -1404,10 +1430,17 @@ export class CatalogService {
   }
 
   async listPublicGalleryMedia(resourceType?: PortfolioMediaType) {
+    const excludedSystemSlugs = [
+      'studio-hero-slider',
+      'studio-editorial-grid',
+      'studio-services-showcase',
+      'studio-about-team',
+    ];
     const baseWhere: Prisma.PortfolioMediaWhereInput = {
       status: PortfolioMediaStatus.READY,
       event: {
         status: { not: PortfolioEventStatus.ARCHIVED },
+        slug: { notIn: excludedSystemSlugs },
       },
     };
     const where: Prisma.PortfolioMediaWhereInput = resourceType
