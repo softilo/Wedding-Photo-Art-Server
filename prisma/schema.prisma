@@ -698,3 +698,27 @@ model Deliverable {
   @@index([assigneeUserId, reviewStatus, dueAt])
   @@map("deliverables")
 }
+
+model ClientReview {
+  id            String   @id @default(uuid()) @db.Uuid
+  clientName    String   @map("client_name")
+  quote         String
+  rating        Int      @default(5)
+  eventTitle    String?  @map("event_title")
+  sourceLabel   String?  @map("source_label")
+  imageUrl      String   @map("image_url")
+  imageAssetId  String?  @map("image_asset_id")
+  imagePublicId String?  @map("image_public_id")
+  imageFormat   String?  @map("image_format")
+  imageBytes    Int?     @map("image_bytes")
+  imageWidth    Int?     @map("image_width")
+  imageHeight   Int?     @map("image_height")
+  isPublished   Boolean  @default(true) @map("is_published")
+  sortOrder     Int      @default(0) @map("sort_order")
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+
+  @@index([isPublished, sortOrder, createdAt(sort: Desc)])
+  @@index([imagePublicId])
+  @@map("client_reviews")
+}

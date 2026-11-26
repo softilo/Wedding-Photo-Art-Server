@@ -14,6 +14,7 @@ import { NotificationsModule } from './modules/notifications/notifications.modul
 import { OperationsModule } from './modules/operations/operations.module.js';
 import { PaymentsModule } from './modules/payments/payments.module.js';
 import { QuotesModule } from './modules/quotes/quotes.module.js';
+import { ReviewsModule } from './modules/reviews/reviews.module.js';
 import { ScheduleModule } from './modules/schedule/schedule.module.js';
 import { StudioModule } from './modules/studio/studio.module.js';
 import { PrismaModule } from './prisma/prisma.module.js';
@@ -34,6 +35,7 @@ export const { ObserveModule, ObserveInstrument } = createObserveModule();
     AuthModule,
     StudioModule,
     CatalogModule,
+    ReviewsModule,
     InquiriesModule,
     QuotesModule,
     PaymentsModule,
