@@ -28,10 +28,16 @@ export type AggregatePackage = {
 
 export type PackageAvgAggregateOutputType = {
   basePricePoisha: number | null
+  coverImageBytes: number | null
+  coverImageWidth: number | null
+  coverImageHeight: number | null
 }
 
 export type PackageSumAggregateOutputType = {
   basePricePoisha: bigint | null
+  coverImageBytes: number | null
+  coverImageWidth: number | null
+  coverImageHeight: number | null
 }
 
 export type PackageMinAggregateOutputType = {
@@ -41,6 +47,13 @@ export type PackageMinAggregateOutputType = {
   slug: string | null
   description: string | null
   basePricePoisha: bigint | null
+  coverImageUrl: string | null
+  coverImageAssetId: string | null
+  coverImagePublicId: string | null
+  coverImageFormat: string | null
+  coverImageBytes: number | null
+  coverImageWidth: number | null
+  coverImageHeight: number | null
   isActive: boolean | null
   isPublished: boolean | null
   createdAt: Date | null
@@ -54,6 +67,13 @@ export type PackageMaxAggregateOutputType = {
   slug: string | null
   description: string | null
   basePricePoisha: bigint | null
+  coverImageUrl: string | null
+  coverImageAssetId: string | null
+  coverImagePublicId: string | null
+  coverImageFormat: string | null
+  coverImageBytes: number | null
+  coverImageWidth: number | null
+  coverImageHeight: number | null
   isActive: boolean | null
   isPublished: boolean | null
   createdAt: Date | null
@@ -67,6 +87,13 @@ export type PackageCountAggregateOutputType = {
   slug: number
   description: number
   basePricePoisha: number
+  coverImageUrl: number
+  coverImageAssetId: number
+  coverImagePublicId: number
+  coverImageFormat: number
+  coverImageBytes: number
+  coverImageWidth: number
+  coverImageHeight: number
   isActive: number
   isPublished: number
   createdAt: number
@@ -77,10 +104,16 @@ export type PackageCountAggregateOutputType = {
 
 export type PackageAvgAggregateInputType = {
   basePricePoisha?: true
+  coverImageBytes?: true
+  coverImageWidth?: true
+  coverImageHeight?: true
 }
 
 export type PackageSumAggregateInputType = {
   basePricePoisha?: true
+  coverImageBytes?: true
+  coverImageWidth?: true
+  coverImageHeight?: true
 }
 
 export type PackageMinAggregateInputType = {
@@ -90,6 +123,13 @@ export type PackageMinAggregateInputType = {
   slug?: true
   description?: true
   basePricePoisha?: true
+  coverImageUrl?: true
+  coverImageAssetId?: true
+  coverImagePublicId?: true
+  coverImageFormat?: true
+  coverImageBytes?: true
+  coverImageWidth?: true
+  coverImageHeight?: true
   isActive?: true
   isPublished?: true
   createdAt?: true
@@ -103,6 +143,13 @@ export type PackageMaxAggregateInputType = {
   slug?: true
   description?: true
   basePricePoisha?: true
+  coverImageUrl?: true
+  coverImageAssetId?: true
+  coverImagePublicId?: true
+  coverImageFormat?: true
+  coverImageBytes?: true
+  coverImageWidth?: true
+  coverImageHeight?: true
   isActive?: true
   isPublished?: true
   createdAt?: true
@@ -116,6 +163,13 @@ export type PackageCountAggregateInputType = {
   slug?: true
   description?: true
   basePricePoisha?: true
+  coverImageUrl?: true
+  coverImageAssetId?: true
+  coverImagePublicId?: true
+  coverImageFormat?: true
+  coverImageBytes?: true
+  coverImageWidth?: true
+  coverImageHeight?: true
   isActive?: true
   isPublished?: true
   createdAt?: true
@@ -216,6 +270,13 @@ export type PackageGroupByOutputType = {
   slug: string
   description: string | null
   basePricePoisha: bigint
+  coverImageUrl: string | null
+  coverImageAssetId: string | null
+  coverImagePublicId: string | null
+  coverImageFormat: string | null
+  coverImageBytes: number | null
+  coverImageWidth: number | null
+  coverImageHeight: number | null
   isActive: boolean
   isPublished: boolean
   createdAt: Date
@@ -252,6 +313,13 @@ export type PackageWhereInput = {
   slug?: Prisma.StringFilter<"Package"> | string
   description?: Prisma.StringNullableFilter<"Package"> | string | null
   basePricePoisha?: Prisma.BigIntFilter<"Package"> | bigint | number
+  coverImageUrl?: Prisma.StringNullableFilter<"Package"> | string | null
+  coverImageAssetId?: Prisma.StringNullableFilter<"Package"> | string | null
+  coverImagePublicId?: Prisma.StringNullableFilter<"Package"> | string | null
+  coverImageFormat?: Prisma.StringNullableFilter<"Package"> | string | null
+  coverImageBytes?: Prisma.IntNullableFilter<"Package"> | number | null
+  coverImageWidth?: Prisma.IntNullableFilter<"Package"> | number | null
+  coverImageHeight?: Prisma.IntNullableFilter<"Package"> | number | null
   isActive?: Prisma.BoolFilter<"Package"> | boolean
   isPublished?: Prisma.BoolFilter<"Package"> | boolean
   createdAt?: Prisma.DateTimeFilter<"Package"> | Date | string
@@ -268,6 +336,13 @@ export type PackageOrderByWithRelationInput = {
   slug?: Prisma.SortOrder
   description?: Prisma.SortOrderInput | Prisma.SortOrder
   basePricePoisha?: Prisma.SortOrder
+  coverImageUrl?: Prisma.SortOrderInput | Prisma.SortOrder
+  coverImageAssetId?: Prisma.SortOrderInput | Prisma.SortOrder
+  coverImagePublicId?: Prisma.SortOrderInput | Prisma.SortOrder
+  coverImageFormat?: Prisma.SortOrderInput | Prisma.SortOrder
+  coverImageBytes?: Prisma.SortOrderInput | Prisma.SortOrder
+  coverImageWidth?: Prisma.SortOrderInput | Prisma.SortOrder
+  coverImageHeight?: Prisma.SortOrderInput | Prisma.SortOrder
   isActive?: Prisma.SortOrder
   isPublished?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
@@ -287,6 +362,13 @@ export type PackageWhereUniqueInput = Prisma.AtLeast<{
   name?: Prisma.StringFilter<"Package"> | string
   description?: Prisma.StringNullableFilter<"Package"> | string | null
   basePricePoisha?: Prisma.BigIntFilter<"Package"> | bigint | number
+  coverImageUrl?: Prisma.StringNullableFilter<"Package"> | string | null
+  coverImageAssetId?: Prisma.StringNullableFilter<"Package"> | string | null
+  coverImagePublicId?: Prisma.StringNullableFilter<"Package"> | string | null
+  coverImageFormat?: Prisma.StringNullableFilter<"Package"> | string | null
+  coverImageBytes?: Prisma.IntNullableFilter<"Package"> | number | null
+  coverImageWidth?: Prisma.IntNullableFilter<"Package"> | number | null
+  coverImageHeight?: Prisma.IntNullableFilter<"Package"> | number | null
   isActive?: Prisma.BoolFilter<"Package"> | boolean
   isPublished?: Prisma.BoolFilter<"Package"> | boolean
   createdAt?: Prisma.DateTimeFilter<"Package"> | Date | string
@@ -303,6 +385,13 @@ export type PackageOrderByWithAggregationInput = {
   slug?: Prisma.SortOrder
   description?: Prisma.SortOrderInput | Prisma.SortOrder
   basePricePoisha?: Prisma.SortOrder
+  coverImageUrl?: Prisma.SortOrderInput | Prisma.SortOrder
+  coverImageAssetId?: Prisma.SortOrderInput | Prisma.SortOrder
+  coverImagePublicId?: Prisma.SortOrderInput | Prisma.SortOrder
+  coverImageFormat?: Prisma.SortOrderInput | Prisma.SortOrder
+  coverImageBytes?: Prisma.SortOrderInput | Prisma.SortOrder
+  coverImageWidth?: Prisma.SortOrderInput | Prisma.SortOrder
+  coverImageHeight?: Prisma.SortOrderInput | Prisma.SortOrder
   isActive?: Prisma.SortOrder
   isPublished?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
@@ -324,6 +413,13 @@ export type PackageScalarWhereWithAggregatesInput = {
   slug?: Prisma.StringWithAggregatesFilter<"Package"> | string
   description?: Prisma.StringNullableWithAggregatesFilter<"Package"> | string | null
   basePricePoisha?: Prisma.BigIntWithAggregatesFilter<"Package"> | bigint | number
+  coverImageUrl?: Prisma.StringNullableWithAggregatesFilter<"Package"> | string | null
+  coverImageAssetId?: Prisma.StringNullableWithAggregatesFilter<"Package"> | string | null
+  coverImagePublicId?: Prisma.StringNullableWithAggregatesFilter<"Package"> | string | null
+  coverImageFormat?: Prisma.StringNullableWithAggregatesFilter<"Package"> | string | null
+  coverImageBytes?: Prisma.IntNullableWithAggregatesFilter<"Package"> | number | null
+  coverImageWidth?: Prisma.IntNullableWithAggregatesFilter<"Package"> | number | null
+  coverImageHeight?: Prisma.IntNullableWithAggregatesFilter<"Package"> | number | null
   isActive?: Prisma.BoolWithAggregatesFilter<"Package"> | boolean
   isPublished?: Prisma.BoolWithAggregatesFilter<"Package"> | boolean
   createdAt?: Prisma.DateTimeWithAggregatesFilter<"Package"> | Date | string
@@ -336,6 +432,13 @@ export type PackageCreateInput = {
   slug: string
   description?: string | null
   basePricePoisha: bigint | number
+  coverImageUrl?: string | null
+  coverImageAssetId?: string | null
+  coverImagePublicId?: string | null
+  coverImageFormat?: string | null
+  coverImageBytes?: number | null
+  coverImageWidth?: number | null
+  coverImageHeight?: number | null
   isActive?: boolean
   isPublished?: boolean
   createdAt?: Date | string
@@ -352,6 +455,13 @@ export type PackageUncheckedCreateInput = {
   slug: string
   description?: string | null
   basePricePoisha: bigint | number
+  coverImageUrl?: string | null
+  coverImageAssetId?: string | null
+  coverImagePublicId?: string | null
+  coverImageFormat?: string | null
+  coverImageBytes?: number | null
+  coverImageWidth?: number | null
+  coverImageHeight?: number | null
   isActive?: boolean
   isPublished?: boolean
   createdAt?: Date | string
@@ -366,6 +476,13 @@ export type PackageUpdateInput = {
   slug?: Prisma.StringFieldUpdateOperationsInput | string
   description?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   basePricePoisha?: Prisma.BigIntFieldUpdateOperationsInput | bigint | number
+  coverImageUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  coverImageAssetId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  coverImagePublicId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  coverImageFormat?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  coverImageBytes?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  coverImageWidth?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  coverImageHeight?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   isActive?: Prisma.BoolFieldUpdateOperationsInput | boolean
   isPublished?: Prisma.BoolFieldUpdateOperationsInput | boolean
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -382,6 +499,13 @@ export type PackageUncheckedUpdateInput = {
   slug?: Prisma.StringFieldUpdateOperationsInput | string
   description?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   basePricePoisha?: Prisma.BigIntFieldUpdateOperationsInput | bigint | number
+  coverImageUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  coverImageAssetId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  coverImagePublicId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  coverImageFormat?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  coverImageBytes?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  coverImageWidth?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  coverImageHeight?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   isActive?: Prisma.BoolFieldUpdateOperationsInput | boolean
   isPublished?: Prisma.BoolFieldUpdateOperationsInput | boolean
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -397,6 +521,13 @@ export type PackageCreateManyInput = {
   slug: string
   description?: string | null
   basePricePoisha: bigint | number
+  coverImageUrl?: string | null
+  coverImageAssetId?: string | null
+  coverImagePublicId?: string | null
+  coverImageFormat?: string | null
+  coverImageBytes?: number | null
+  coverImageWidth?: number | null
+  coverImageHeight?: number | null
   isActive?: boolean
   isPublished?: boolean
   createdAt?: Date | string
@@ -409,6 +540,13 @@ export type PackageUpdateManyMutationInput = {
   slug?: Prisma.StringFieldUpdateOperationsInput | string
   description?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   basePricePoisha?: Prisma.BigIntFieldUpdateOperationsInput | bigint | number
+  coverImageUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  coverImageAssetId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  coverImagePublicId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  coverImageFormat?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  coverImageBytes?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  coverImageWidth?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  coverImageHeight?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   isActive?: Prisma.BoolFieldUpdateOperationsInput | boolean
   isPublished?: Prisma.BoolFieldUpdateOperationsInput | boolean
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -422,6 +560,13 @@ export type PackageUncheckedUpdateManyInput = {
   slug?: Prisma.StringFieldUpdateOperationsInput | string
   description?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   basePricePoisha?: Prisma.BigIntFieldUpdateOperationsInput | bigint | number
+  coverImageUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  coverImageAssetId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  coverImagePublicId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  coverImageFormat?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  coverImageBytes?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  coverImageWidth?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  coverImageHeight?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   isActive?: Prisma.BoolFieldUpdateOperationsInput | boolean
   isPublished?: Prisma.BoolFieldUpdateOperationsInput | boolean
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -445,6 +590,13 @@ export type PackageCountOrderByAggregateInput = {
   slug?: Prisma.SortOrder
   description?: Prisma.SortOrder
   basePricePoisha?: Prisma.SortOrder
+  coverImageUrl?: Prisma.SortOrder
+  coverImageAssetId?: Prisma.SortOrder
+  coverImagePublicId?: Prisma.SortOrder
+  coverImageFormat?: Prisma.SortOrder
+  coverImageBytes?: Prisma.SortOrder
+  coverImageWidth?: Prisma.SortOrder
+  coverImageHeight?: Prisma.SortOrder
   isActive?: Prisma.SortOrder
   isPublished?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
@@ -453,6 +605,9 @@ export type PackageCountOrderByAggregateInput = {
 
 export type PackageAvgOrderByAggregateInput = {
   basePricePoisha?: Prisma.SortOrder
+  coverImageBytes?: Prisma.SortOrder
+  coverImageWidth?: Prisma.SortOrder
+  coverImageHeight?: Prisma.SortOrder
 }
 
 export type PackageMaxOrderByAggregateInput = {
@@ -462,6 +617,13 @@ export type PackageMaxOrderByAggregateInput = {
   slug?: Prisma.SortOrder
   description?: Prisma.SortOrder
   basePricePoisha?: Prisma.SortOrder
+  coverImageUrl?: Prisma.SortOrder
+  coverImageAssetId?: Prisma.SortOrder
+  coverImagePublicId?: Prisma.SortOrder
+  coverImageFormat?: Prisma.SortOrder
+  coverImageBytes?: Prisma.SortOrder
+  coverImageWidth?: Prisma.SortOrder
+  coverImageHeight?: Prisma.SortOrder
   isActive?: Prisma.SortOrder
   isPublished?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
@@ -475,6 +637,13 @@ export type PackageMinOrderByAggregateInput = {
   slug?: Prisma.SortOrder
   description?: Prisma.SortOrder
   basePricePoisha?: Prisma.SortOrder
+  coverImageUrl?: Prisma.SortOrder
+  coverImageAssetId?: Prisma.SortOrder
+  coverImagePublicId?: Prisma.SortOrder
+  coverImageFormat?: Prisma.SortOrder
+  coverImageBytes?: Prisma.SortOrder
+  coverImageWidth?: Prisma.SortOrder
+  coverImageHeight?: Prisma.SortOrder
   isActive?: Prisma.SortOrder
   isPublished?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
@@ -483,6 +652,9 @@ export type PackageMinOrderByAggregateInput = {
 
 export type PackageSumOrderByAggregateInput = {
   basePricePoisha?: Prisma.SortOrder
+  coverImageBytes?: Prisma.SortOrder
+  coverImageWidth?: Prisma.SortOrder
+  coverImageHeight?: Prisma.SortOrder
 }
 
 export type PackageScalarRelationFilter = {
@@ -537,6 +709,14 @@ export type PackageUncheckedUpdateManyWithoutEventTypeNestedInput = {
   deleteMany?: Prisma.PackageScalarWhereInput | Prisma.PackageScalarWhereInput[]
 }
 
+export type NullableIntFieldUpdateOperationsInput = {
+  set?: number | null
+  increment?: number
+  decrement?: number
+  multiply?: number
+  divide?: number
+}
+
 export type PackageCreateNestedOneWithoutItemsInput = {
   create?: Prisma.XOR<Prisma.PackageCreateWithoutItemsInput, Prisma.PackageUncheckedCreateWithoutItemsInput>
   connectOrCreate?: Prisma.PackageCreateOrConnectWithoutItemsInput
@@ -573,6 +753,13 @@ export type PackageCreateWithoutEventTypeInput = {
   slug: string
   description?: string | null
   basePricePoisha: bigint | number
+  coverImageUrl?: string | null
+  coverImageAssetId?: string | null
+  coverImagePublicId?: string | null
+  coverImageFormat?: string | null
+  coverImageBytes?: number | null
+  coverImageWidth?: number | null
+  coverImageHeight?: number | null
   isActive?: boolean
   isPublished?: boolean
   createdAt?: Date | string
@@ -587,6 +774,13 @@ export type PackageUncheckedCreateWithoutEventTypeInput = {
   slug: string
   description?: string | null
   basePricePoisha: bigint | number
+  coverImageUrl?: string | null
+  coverImageAssetId?: string | null
+  coverImagePublicId?: string | null
+  coverImageFormat?: string | null
+  coverImageBytes?: number | null
+  coverImageWidth?: number | null
+  coverImageHeight?: number | null
   isActive?: boolean
   isPublished?: boolean
   createdAt?: Date | string
@@ -631,6 +825,13 @@ export type PackageScalarWhereInput = {
   slug?: Prisma.StringFilter<"Package"> | string
   description?: Prisma.StringNullableFilter<"Package"> | string | null
   basePricePoisha?: Prisma.BigIntFilter<"Package"> | bigint | number
+  coverImageUrl?: Prisma.StringNullableFilter<"Package"> | string | null
+  coverImageAssetId?: Prisma.StringNullableFilter<"Package"> | string | null
+  coverImagePublicId?: Prisma.StringNullableFilter<"Package"> | string | null
+  coverImageFormat?: Prisma.StringNullableFilter<"Package"> | string | null
+  coverImageBytes?: Prisma.IntNullableFilter<"Package"> | number | null
+  coverImageWidth?: Prisma.IntNullableFilter<"Package"> | number | null
+  coverImageHeight?: Prisma.IntNullableFilter<"Package"> | number | null
   isActive?: Prisma.BoolFilter<"Package"> | boolean
   isPublished?: Prisma.BoolFilter<"Package"> | boolean
   createdAt?: Prisma.DateTimeFilter<"Package"> | Date | string
@@ -643,6 +844,13 @@ export type PackageCreateWithoutItemsInput = {
   slug: string
   description?: string | null
   basePricePoisha: bigint | number
+  coverImageUrl?: string | null
+  coverImageAssetId?: string | null
+  coverImagePublicId?: string | null
+  coverImageFormat?: string | null
+  coverImageBytes?: number | null
+  coverImageWidth?: number | null
+  coverImageHeight?: number | null
   isActive?: boolean
   isPublished?: boolean
   createdAt?: Date | string
@@ -658,6 +866,13 @@ export type PackageUncheckedCreateWithoutItemsInput = {
   slug: string
   description?: string | null
   basePricePoisha: bigint | number
+  coverImageUrl?: string | null
+  coverImageAssetId?: string | null
+  coverImagePublicId?: string | null
+  coverImageFormat?: string | null
+  coverImageBytes?: number | null
+  coverImageWidth?: number | null
+  coverImageHeight?: number | null
   isActive?: boolean
   isPublished?: boolean
   createdAt?: Date | string
@@ -687,6 +902,13 @@ export type PackageUpdateWithoutItemsInput = {
   slug?: Prisma.StringFieldUpdateOperationsInput | string
   description?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   basePricePoisha?: Prisma.BigIntFieldUpdateOperationsInput | bigint | number
+  coverImageUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  coverImageAssetId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  coverImagePublicId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  coverImageFormat?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  coverImageBytes?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  coverImageWidth?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  coverImageHeight?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   isActive?: Prisma.BoolFieldUpdateOperationsInput | boolean
   isPublished?: Prisma.BoolFieldUpdateOperationsInput | boolean
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -702,6 +924,13 @@ export type PackageUncheckedUpdateWithoutItemsInput = {
   slug?: Prisma.StringFieldUpdateOperationsInput | string
   description?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   basePricePoisha?: Prisma.BigIntFieldUpdateOperationsInput | bigint | number
+  coverImageUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  coverImageAssetId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  coverImagePublicId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  coverImageFormat?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  coverImageBytes?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  coverImageWidth?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  coverImageHeight?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   isActive?: Prisma.BoolFieldUpdateOperationsInput | boolean
   isPublished?: Prisma.BoolFieldUpdateOperationsInput | boolean
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -715,6 +944,13 @@ export type PackageCreateWithoutInquiriesInput = {
   slug: string
   description?: string | null
   basePricePoisha: bigint | number
+  coverImageUrl?: string | null
+  coverImageAssetId?: string | null
+  coverImagePublicId?: string | null
+  coverImageFormat?: string | null
+  coverImageBytes?: number | null
+  coverImageWidth?: number | null
+  coverImageHeight?: number | null
   isActive?: boolean
   isPublished?: boolean
   createdAt?: Date | string
@@ -730,6 +966,13 @@ export type PackageUncheckedCreateWithoutInquiriesInput = {
   slug: string
   description?: string | null
   basePricePoisha: bigint | number
+  coverImageUrl?: string | null
+  coverImageAssetId?: string | null
+  coverImagePublicId?: string | null
+  coverImageFormat?: string | null
+  coverImageBytes?: number | null
+  coverImageWidth?: number | null
+  coverImageHeight?: number | null
   isActive?: boolean
   isPublished?: boolean
   createdAt?: Date | string
@@ -759,6 +1002,13 @@ export type PackageUpdateWithoutInquiriesInput = {
   slug?: Prisma.StringFieldUpdateOperationsInput | string
   description?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   basePricePoisha?: Prisma.BigIntFieldUpdateOperationsInput | bigint | number
+  coverImageUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  coverImageAssetId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  coverImagePublicId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  coverImageFormat?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  coverImageBytes?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  coverImageWidth?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  coverImageHeight?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   isActive?: Prisma.BoolFieldUpdateOperationsInput | boolean
   isPublished?: Prisma.BoolFieldUpdateOperationsInput | boolean
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -774,6 +1024,13 @@ export type PackageUncheckedUpdateWithoutInquiriesInput = {
   slug?: Prisma.StringFieldUpdateOperationsInput | string
   description?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   basePricePoisha?: Prisma.BigIntFieldUpdateOperationsInput | bigint | number
+  coverImageUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  coverImageAssetId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  coverImagePublicId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  coverImageFormat?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  coverImageBytes?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  coverImageWidth?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  coverImageHeight?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   isActive?: Prisma.BoolFieldUpdateOperationsInput | boolean
   isPublished?: Prisma.BoolFieldUpdateOperationsInput | boolean
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -787,6 +1044,13 @@ export type PackageCreateManyEventTypeInput = {
   slug: string
   description?: string | null
   basePricePoisha: bigint | number
+  coverImageUrl?: string | null
+  coverImageAssetId?: string | null
+  coverImagePublicId?: string | null
+  coverImageFormat?: string | null
+  coverImageBytes?: number | null
+  coverImageWidth?: number | null
+  coverImageHeight?: number | null
   isActive?: boolean
   isPublished?: boolean
   createdAt?: Date | string
@@ -799,6 +1063,13 @@ export type PackageUpdateWithoutEventTypeInput = {
   slug?: Prisma.StringFieldUpdateOperationsInput | string
   description?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   basePricePoisha?: Prisma.BigIntFieldUpdateOperationsInput | bigint | number
+  coverImageUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  coverImageAssetId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  coverImagePublicId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  coverImageFormat?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  coverImageBytes?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  coverImageWidth?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  coverImageHeight?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   isActive?: Prisma.BoolFieldUpdateOperationsInput | boolean
   isPublished?: Prisma.BoolFieldUpdateOperationsInput | boolean
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -813,6 +1084,13 @@ export type PackageUncheckedUpdateWithoutEventTypeInput = {
   slug?: Prisma.StringFieldUpdateOperationsInput | string
   description?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   basePricePoisha?: Prisma.BigIntFieldUpdateOperationsInput | bigint | number
+  coverImageUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  coverImageAssetId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  coverImagePublicId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  coverImageFormat?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  coverImageBytes?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  coverImageWidth?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  coverImageHeight?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   isActive?: Prisma.BoolFieldUpdateOperationsInput | boolean
   isPublished?: Prisma.BoolFieldUpdateOperationsInput | boolean
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -827,6 +1105,13 @@ export type PackageUncheckedUpdateManyWithoutEventTypeInput = {
   slug?: Prisma.StringFieldUpdateOperationsInput | string
   description?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   basePricePoisha?: Prisma.BigIntFieldUpdateOperationsInput | bigint | number
+  coverImageUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  coverImageAssetId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  coverImagePublicId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  coverImageFormat?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  coverImageBytes?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  coverImageWidth?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  coverImageHeight?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   isActive?: Prisma.BoolFieldUpdateOperationsInput | boolean
   isPublished?: Prisma.BoolFieldUpdateOperationsInput | boolean
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -880,6 +1165,13 @@ export type PackageSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs 
   slug?: boolean
   description?: boolean
   basePricePoisha?: boolean
+  coverImageUrl?: boolean
+  coverImageAssetId?: boolean
+  coverImagePublicId?: boolean
+  coverImageFormat?: boolean
+  coverImageBytes?: boolean
+  coverImageWidth?: boolean
+  coverImageHeight?: boolean
   isActive?: boolean
   isPublished?: boolean
   createdAt?: boolean
@@ -897,6 +1189,13 @@ export type PackageSelectCreateManyAndReturn<ExtArgs extends runtime.Types.Exten
   slug?: boolean
   description?: boolean
   basePricePoisha?: boolean
+  coverImageUrl?: boolean
+  coverImageAssetId?: boolean
+  coverImagePublicId?: boolean
+  coverImageFormat?: boolean
+  coverImageBytes?: boolean
+  coverImageWidth?: boolean
+  coverImageHeight?: boolean
   isActive?: boolean
   isPublished?: boolean
   createdAt?: boolean
@@ -911,6 +1210,13 @@ export type PackageSelectUpdateManyAndReturn<ExtArgs extends runtime.Types.Exten
   slug?: boolean
   description?: boolean
   basePricePoisha?: boolean
+  coverImageUrl?: boolean
+  coverImageAssetId?: boolean
+  coverImagePublicId?: boolean
+  coverImageFormat?: boolean
+  coverImageBytes?: boolean
+  coverImageWidth?: boolean
+  coverImageHeight?: boolean
   isActive?: boolean
   isPublished?: boolean
   createdAt?: boolean
@@ -925,13 +1231,20 @@ export type PackageSelectScalar = {
   slug?: boolean
   description?: boolean
   basePricePoisha?: boolean
+  coverImageUrl?: boolean
+  coverImageAssetId?: boolean
+  coverImagePublicId?: boolean
+  coverImageFormat?: boolean
+  coverImageBytes?: boolean
+  coverImageWidth?: boolean
+  coverImageHeight?: boolean
   isActive?: boolean
   isPublished?: boolean
   createdAt?: boolean
   updatedAt?: boolean
 }
 
-export type PackageOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "eventTypeId" | "name" | "slug" | "description" | "basePricePoisha" | "isActive" | "isPublished" | "createdAt" | "updatedAt", ExtArgs["result"]["package"]>
+export type PackageOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "eventTypeId" | "name" | "slug" | "description" | "basePricePoisha" | "coverImageUrl" | "coverImageAssetId" | "coverImagePublicId" | "coverImageFormat" | "coverImageBytes" | "coverImageWidth" | "coverImageHeight" | "isActive" | "isPublished" | "createdAt" | "updatedAt", ExtArgs["result"]["package"]>
 export type PackageInclude<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   eventType?: boolean | Prisma.Package$eventTypeArgs<ExtArgs>
   items?: boolean | Prisma.Package$itemsArgs<ExtArgs>
@@ -959,6 +1272,13 @@ export type $PackagePayload<ExtArgs extends runtime.Types.Extensions.InternalArg
     slug: string
     description: string | null
     basePricePoisha: bigint
+    coverImageUrl: string | null
+    coverImageAssetId: string | null
+    coverImagePublicId: string | null
+    coverImageFormat: string | null
+    coverImageBytes: number | null
+    coverImageWidth: number | null
+    coverImageHeight: number | null
     isActive: boolean
     isPublished: boolean
     createdAt: Date
@@ -1395,6 +1715,13 @@ export interface PackageFieldRefs {
   readonly slug: Prisma.FieldRef<"Package", 'String'>
   readonly description: Prisma.FieldRef<"Package", 'String'>
   readonly basePricePoisha: Prisma.FieldRef<"Package", 'BigInt'>
+  readonly coverImageUrl: Prisma.FieldRef<"Package", 'String'>
+  readonly coverImageAssetId: Prisma.FieldRef<"Package", 'String'>
+  readonly coverImagePublicId: Prisma.FieldRef<"Package", 'String'>
+  readonly coverImageFormat: Prisma.FieldRef<"Package", 'String'>
+  readonly coverImageBytes: Prisma.FieldRef<"Package", 'Int'>
+  readonly coverImageWidth: Prisma.FieldRef<"Package", 'Int'>
+  readonly coverImageHeight: Prisma.FieldRef<"Package", 'Int'>
   readonly isActive: Prisma.FieldRef<"Package", 'Boolean'>
   readonly isPublished: Prisma.FieldRef<"Package", 'Boolean'>
   readonly createdAt: Prisma.FieldRef<"Package", 'DateTime'>

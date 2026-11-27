@@ -24,6 +24,7 @@ import {
   ListPortfolioEventsQueryDto,
   RegisterPortfolioMediaDto,
   ReorderPortfolioMediaDto,
+  SignPackageCoverUploadDto,
   SignPortfolioUploadDto,
   UpdateDeliverableLabelDto,
   UpdatePackageDto,
@@ -60,6 +61,12 @@ export class CatalogController {
   }
 
   @Roles(UserRole.OWNER, UserRole.COORDINATOR)
+  @Post('packages/sign-upload')
+  signPackageCoverUpload(@Body() dto: SignPackageCoverUploadDto) {
+    return this.catalogService.signPackageCoverUpload(dto);
+  }
+
+  @Roles(UserRole.OWNER, UserRole.COORDINATOR)
   @Post('packages')
   createPackage(@Body() dto: CreatePackageDto) {
     return this.catalogService.createPackage(dto);
@@ -69,6 +76,11 @@ export class CatalogController {
   @Patch('packages/:id')
   updatePackage(@Param('id') id: string, @Body() dto: UpdatePackageDto) {
     return this.catalogService.updatePackage(id, dto);
+  }
+
+  @Get('packages/:id')
+  getPackage(@Param('id') id: string) {
+    return this.catalogService.getPackageById(id);
   }
 
   @Get('packages')

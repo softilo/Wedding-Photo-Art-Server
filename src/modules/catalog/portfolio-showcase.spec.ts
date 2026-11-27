@@ -421,5 +421,49 @@ describe('Portfolio Showcase Events & Cloudinary Upload Workflow', () => {
         'https://res.cloudinary.com/demo/video/upload/f_auto,q_auto/v1700000/softilo/portfolio/ev-1/highlight.mp4',
       );
     });
+
+    it('auto-generates unique portfolio slugs from title when slug is omitted or collides', async () => {
+      const taken = new Set<string>(['ayesha-rafiq-wedding']);
+      const create = vi.fn(async ({ data }: { data: { slug: string; title: string } }) => {
+        taken.add(data.slug);
+        return {
+          id: `ev-${taken.size}`,
+          eventTypeId: null,
+          eventType: null,
+          title: data.title,
+          slug: data.slug,
+          eventDate: null,
+          description: null,
+          location: null,
+          status: 'DRAFT',
+          coverMediaId: null,
+          coverMedia: null,
+          sortOrder: 0,
+          publishedAt: null,
+          createdAt: new Date(),
+          updatedAt: new Date(),
+          media: [],
+        };
+      });
+
+      const service = new CatalogService({
+        portfolioEvent: {
+          findUnique: async ({ where }: { where: { slug: string } }) =>
+            taken.has(where.slug) ? { id: 'taken' } : null,
+          create,
+        },
+      } as never);
+
+      const second = await service.createPortfolioEvent({
+        title: 'Ayesha & Rafiq Wedding',
+      });
+      expect(second.slug).toBe('ayesha-rafiq-wedding-2');
+
+      // System slugs must never be shadowed by user event titles
+      const reservedAttempt = await service.createPortfolioEvent({
+        title: 'Studio Hero Slider',
+      });
+      expect(reservedAttempt.slug).toBe('studio-hero-slider-2');
+    });
   });
 });

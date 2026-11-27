@@ -9,7 +9,11 @@ import {
   IsString,
   IsUUID,
   Matches,
+  Max,
+  MaxLength,
   Min,
+  MinLength,
+  ValidateIf,
   ValidateNested,
 } from 'class-validator';
 import { PaginationQueryDto } from '../../../common/dto/pagination.dto.js';
@@ -18,9 +22,11 @@ export class CreateEventTypeDto {
   @IsString()
   name!: string;
 
+  @IsOptional()
+  @ValidateIf((_, val) => val !== null && val !== undefined && val !== '')
   @IsString()
   @Matches(/^[a-z0-9-]+$/)
-  slug!: string;
+  slug?: string;
 
   @IsOptional()
   @IsString()
@@ -50,33 +56,60 @@ export class PackageItemInputDto {
   serviceItemId?: string;
 
   @IsString()
+  @MinLength(1)
+  @MaxLength(300)
   description!: string;
 
+  @Type(() => Number)
   @IsInt()
   @Min(1)
   quantity!: number;
 
+  @Type(() => Number)
   @IsInt()
   @Min(0)
   unitPricePoisha!: number;
 }
 
+export class SignPackageCoverUploadDto {
+  @IsString()
+  @MinLength(1)
+  @MaxLength(16)
+  format!: string;
+
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  @Max(25 * 1024 * 1024)
+  bytes!: number;
+}
+
 export class CreatePackageDto {
   @IsOptional()
+  @ValidateIf((_, val) => val !== null && val !== undefined)
   @IsUUID()
-  eventTypeId?: string;
+  eventTypeId?: string | null;
 
   @IsString()
+  @MinLength(1)
+  @MaxLength(160)
   name!: string;
 
+  @IsOptional()
+  @ValidateIf((_, val) => val !== null && val !== undefined && val !== '')
   @IsString()
-  @Matches(/^[a-z0-9-]+$/)
-  slug!: string;
+  @Matches(/^[a-z0-9-]+$/, {
+    message: 'slug must contain only lowercase letters, numbers, and hyphens',
+  })
+  slug?: string;
 
   @IsOptional()
+  @ValidateIf((_, val) => val !== null && val !== undefined)
   @IsString()
-  description?: string;
+  @MaxLength(1000)
+  description?: string | null;
 
+  @Type(() => Number)
   @IsInt()
   @Min(0)
   basePricePoisha!: number;
@@ -84,6 +117,64 @@ export class CreatePackageDto {
   @IsOptional()
   @IsBoolean()
   isPublished?: boolean;
+
+  @IsOptional()
+  @ValidateIf((_, val) => val !== null && val !== undefined)
+  @IsString()
+  @MaxLength(1000)
+  coverImageUrl?: string | null;
+
+  @IsOptional()
+  @ValidateIf((_, val) => val !== null && val !== undefined)
+  @IsString()
+  @MaxLength(160)
+  coverImageAssetId?: string | null;
+
+  @IsOptional()
+  @ValidateIf((_, val) => val !== null && val !== undefined)
+  @IsString()
+  @MaxLength(260)
+  coverImagePublicId?: string | null;
+
+  @IsOptional()
+  @ValidateIf((_, val) => val !== null && val !== undefined)
+  @IsString()
+  @MaxLength(16)
+  coverImageFormat?: string | null;
+
+  @IsOptional()
+  @ValidateIf((_, val) => val !== null && val !== undefined)
+  @Type(() => Number)
+  @IsInt()
+  @Min(0)
+  coverImageBytes?: number | null;
+
+  @IsOptional()
+  @ValidateIf((_, val) => val !== null && val !== undefined)
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  coverImageWidth?: number | null;
+
+  @IsOptional()
+  @ValidateIf((_, val) => val !== null && val !== undefined)
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  coverImageHeight?: number | null;
+
+  @IsOptional()
+  @ValidateIf((_, val) => val !== null && val !== undefined)
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  coverImageVersion?: number | null;
+
+  @IsOptional()
+  @ValidateIf((_, val) => val !== null && val !== undefined)
+  @IsString()
+  @MaxLength(128)
+  coverImageResponseSignature?: string | null;
 
   @IsOptional()
   @IsArray()
@@ -94,14 +185,31 @@ export class CreatePackageDto {
 
 export class UpdatePackageDto {
   @IsOptional()
+  @ValidateIf((_, val) => val !== null && val !== undefined)
+  @IsUUID()
+  eventTypeId?: string | null;
+
+  @IsOptional()
   @IsString()
+  @MinLength(1)
+  @MaxLength(160)
   name?: string;
 
   @IsOptional()
   @IsString()
-  description?: string;
+  @Matches(/^[a-z0-9-]+$/, {
+    message: 'slug must contain only lowercase letters, numbers, and hyphens',
+  })
+  slug?: string;
 
   @IsOptional()
+  @ValidateIf((_, val) => val !== null && val !== undefined)
+  @IsString()
+  @MaxLength(1000)
+  description?: string | null;
+
+  @IsOptional()
+  @Type(() => Number)
   @IsInt()
   @Min(0)
   basePricePoisha?: number;
@@ -113,6 +221,64 @@ export class UpdatePackageDto {
   @IsOptional()
   @IsBoolean()
   isPublished?: boolean;
+
+  @IsOptional()
+  @ValidateIf((_, val) => val !== null && val !== undefined)
+  @IsString()
+  @MaxLength(1000)
+  coverImageUrl?: string | null;
+
+  @IsOptional()
+  @ValidateIf((_, val) => val !== null && val !== undefined)
+  @IsString()
+  @MaxLength(160)
+  coverImageAssetId?: string | null;
+
+  @IsOptional()
+  @ValidateIf((_, val) => val !== null && val !== undefined)
+  @IsString()
+  @MaxLength(260)
+  coverImagePublicId?: string | null;
+
+  @IsOptional()
+  @ValidateIf((_, val) => val !== null && val !== undefined)
+  @IsString()
+  @MaxLength(16)
+  coverImageFormat?: string | null;
+
+  @IsOptional()
+  @ValidateIf((_, val) => val !== null && val !== undefined)
+  @Type(() => Number)
+  @IsInt()
+  @Min(0)
+  coverImageBytes?: number | null;
+
+  @IsOptional()
+  @ValidateIf((_, val) => val !== null && val !== undefined)
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  coverImageWidth?: number | null;
+
+  @IsOptional()
+  @ValidateIf((_, val) => val !== null && val !== undefined)
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  coverImageHeight?: number | null;
+
+  @IsOptional()
+  @ValidateIf((_, val) => val !== null && val !== undefined)
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  coverImageVersion?: number | null;
+
+  @IsOptional()
+  @ValidateIf((_, val) => val !== null && val !== undefined)
+  @IsString()
+  @MaxLength(128)
+  coverImageResponseSignature?: string | null;
 
   @IsOptional()
   @IsArray()
@@ -238,11 +404,13 @@ export class CreatePortfolioEventDto {
   @IsString()
   title!: string;
 
+  @IsOptional()
+  @ValidateIf((_, val) => val !== null && val !== undefined && val !== '')
   @IsString()
   @Matches(/^[a-z0-9-]+$/, {
     message: 'slug must contain only lowercase letters, numbers, and hyphens',
   })
-  slug!: string;
+  slug?: string;
 
   @IsOptional()
   @Matches(/^\d{4}-\d{2}-\d{2}$/, {

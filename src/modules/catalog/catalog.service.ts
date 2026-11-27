@@ -33,6 +33,7 @@ import {
   ListPortfolioEventsQueryDto,
   RegisterPortfolioMediaDto,
   ReorderPortfolioMediaDto,
+  SignPackageCoverUploadDto,
   SignPortfolioUploadDto,
   UpdateDeliverableLabelDto,
   UpdatePackageDto,
@@ -41,6 +42,9 @@ import {
   UpdatePortfolioMediaDto,
   UpdateTaskTemplateDto,
 } from './dto/catalog.dto.js';
+
+const PACKAGE_UUID_REGEX =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 @Injectable()
 export class CatalogService {
@@ -76,6 +80,13 @@ export class CatalogService {
     slug: string;
     description: string | null;
     basePricePoisha: bigint;
+    coverImageUrl?: string | null;
+    coverImageAssetId?: string | null;
+    coverImagePublicId?: string | null;
+    coverImageFormat?: string | null;
+    coverImageBytes?: number | null;
+    coverImageWidth?: number | null;
+    coverImageHeight?: number | null;
     isActive: boolean;
     isPublished: boolean;
     items?: Array<{
@@ -86,6 +97,23 @@ export class CatalogService {
       unitPricePoisha: bigint;
     }>;
   }) {
+    const coverImageUrl = pkg.coverImageUrl ?? null;
+    const coverDeliveryUrls = coverImageUrl
+      ? pkg.coverImagePublicId && pkg.coverImageFormat
+        ? buildCloudinaryDeliveryUrls({
+            secureUrl: coverImageUrl,
+            publicId: pkg.coverImagePublicId,
+            resourceType: 'IMAGE',
+            format: pkg.coverImageFormat,
+          })
+        : {
+            coverUrl: coverImageUrl,
+            thumbnailUrl: coverImageUrl,
+            fullUrl: coverImageUrl,
+            posterUrl: null,
+          }
+      : null;
+
     return {
       id: pkg.id,
       eventTypeId: pkg.eventTypeId,
@@ -94,6 +122,14 @@ export class CatalogService {
       slug: pkg.slug,
       description: pkg.description,
       basePricePoisha: toJsonPoisha(pkg.basePricePoisha),
+      coverImageUrl,
+      coverImageAssetId: pkg.coverImageAssetId ?? null,
+      coverImagePublicId: pkg.coverImagePublicId ?? null,
+      coverImageFormat: pkg.coverImageFormat ?? null,
+      coverImageBytes: pkg.coverImageBytes ?? null,
+      coverImageWidth: pkg.coverImageWidth ?? null,
+      coverImageHeight: pkg.coverImageHeight ?? null,
+      coverDeliveryUrls,
       isActive: pkg.isActive,
       isPublished: pkg.isPublished,
       items: pkg.items?.map((item) => ({
@@ -106,14 +142,219 @@ export class CatalogService {
     };
   }
 
-  async createEventType(dto: CreateEventTypeDto) {
-    return this.prisma.eventType.create({
-      data: {
-        name: dto.name.trim(),
-        slug: dto.slug.trim().toLowerCase(),
-        description: dto.description,
-      },
+  private normalizePackageCoverInput(input: {
+    coverImageUrl?: string | null;
+    coverImageAssetId?: string | null;
+    coverImagePublicId?: string | null;
+    coverImageFormat?: string | null;
+    coverImageBytes?: number | null;
+    coverImageWidth?: number | null;
+    coverImageHeight?: number | null;
+    coverImageVersion?: number | null;
+    coverImageResponseSignature?: string | null;
+  }) {
+    if (input.coverImageUrl === undefined) {
+      return undefined;
+    }
+
+    const cleanUrl = input.coverImageUrl?.trim() || null;
+    if (!cleanUrl) {
+      return {
+        coverImageUrl: null,
+        coverImageAssetId: null,
+        coverImagePublicId: null,
+        coverImageFormat: null,
+        coverImageBytes: null,
+        coverImageWidth: null,
+        coverImageHeight: null,
+      };
+    }
+
+    let parsedUrl: URL;
+    try {
+      parsedUrl = new URL(cleanUrl);
+    } catch {
+      throw new BadRequestException('Package cover image URL must be a valid HTTPS URL.');
+    }
+    if (parsedUrl.protocol !== 'https:') {
+      throw new BadRequestException('Package cover image URL must use HTTPS.');
+    }
+
+    const publicId = input.coverImagePublicId?.trim() || null;
+    const format = input.coverImageFormat?.trim().toLowerCase().replace(/^\./, '') || null;
+    if (publicId && input.coverImageVersion && input.coverImageResponseSignature) {
+      verifyUploadedAssetMetadata({
+        config: loadCloudinaryConfig(),
+        eventId: 'packages',
+        publicId,
+        resourceType: 'IMAGE',
+        format: format ?? 'jpg',
+        secureUrl: cleanUrl,
+        bytes: input.coverImageBytes ?? 0,
+        version: input.coverImageVersion,
+        responseSignature: input.coverImageResponseSignature,
+      });
+    }
+
+    return {
+      coverImageUrl: cleanUrl,
+      coverImageAssetId: input.coverImageAssetId?.trim() || null,
+      coverImagePublicId: publicId,
+      coverImageFormat: format,
+      coverImageBytes: input.coverImageBytes ?? null,
+      coverImageWidth: input.coverImageWidth ?? null,
+      coverImageHeight: input.coverImageHeight ?? null,
+    };
+  }
+
+  private normalizePackageItemsInput(
+    items: CreatePackageDto['items'],
+  ): Array<{
+    serviceItemId: string | null;
+    description: string;
+    quantity: number;
+    unitPricePoisha: bigint;
+  }> {
+    if (!items) return [];
+    return items.map((item) => {
+      const desc = item.description.trim();
+      if (!desc) {
+        throw new BadRequestException('Each package item line must include a description.');
+      }
+      return {
+        serviceItemId: item.serviceItemId ?? null,
+        description: desc,
+        quantity: item.quantity,
+        unitPricePoisha: toPoisha(item.unitPricePoisha),
+      };
     });
+  }
+
+  signPackageCoverUpload(dto: SignPackageCoverUploadDto) {
+    return createSignedUploadPayload({
+      config: loadCloudinaryConfig(),
+      eventId: 'packages',
+      resourceType: 'IMAGE',
+      format: dto.format,
+      bytes: dto.bytes,
+    });
+  }
+
+  private static readonly SYSTEM_PORTFOLIO_SLUGS = new Set([
+    'studio-media-gallery',
+    'studio-hero-slider',
+    'studio-editorial-grid',
+    'studio-services-showcase',
+    'studio-about-team',
+  ]);
+
+  private normalizeSlugBase(raw: string | undefined, fallbackPrefix: string): string {
+    const cleaned = (raw ?? '')
+      .normalize('NFKD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .toLowerCase()
+      .trim()
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-+|-+$/g, '')
+      .slice(0, 72)
+      .replace(/-+$/g, '');
+    return cleaned || fallbackPrefix;
+  }
+
+  private isNonSlugUniqueConflict(error: Prisma.PrismaClientKnownRequestError): boolean {
+    const target = error.meta?.target;
+    if (Array.isArray(target)) {
+      return target.length > 0 && !target.map(String).includes('slug');
+    }
+    if (typeof target === 'string') {
+      return target.length > 0 && !target.toLowerCase().includes('slug');
+    }
+    return false;
+  }
+
+  private async resolveUniqueSlug(
+    baseSource: string,
+    fallbackPrefix: string,
+    existsBySlug: (candidate: string) => Promise<boolean>,
+    attemptedSlugs: Set<string>,
+    attemptOffset = 0,
+  ): Promise<string> {
+    const base = this.normalizeSlugBase(baseSource, fallbackPrefix);
+    const maxLinearProbes = 20;
+
+    for (let i = attemptOffset; i < attemptOffset + maxLinearProbes; i += 1) {
+      const suffix = i === 0 ? '' : `-${i + 1}`;
+      const candidate = `${base.slice(0, Math.max(1, 80 - suffix.length)).replace(/-+$/g, '')}${suffix}`;
+      if (!attemptedSlugs.has(candidate) && !(await existsBySlug(candidate))) {
+        return candidate;
+      }
+    }
+
+    const randomSuffix = `${Date.now().toString(36).slice(-4)}${Math.random().toString(36).slice(2, 5)}`;
+    return `${base.slice(0, Math.max(1, 71))}-${randomSuffix}`;
+  }
+
+  private async createWithUniqueSlug<T>(
+    rawSource: string,
+    fallbackPrefix: string,
+    existsBySlug: (candidate: string) => Promise<boolean>,
+    createRecord: (slug: string) => Promise<T>,
+  ): Promise<T> {
+    let lastError: unknown;
+    const attemptedSlugs = new Set<string>();
+    for (let attempt = 0; attempt < 5; attempt += 1) {
+      const slug = await this.resolveUniqueSlug(
+        rawSource,
+        fallbackPrefix,
+        existsBySlug,
+        attemptedSlugs,
+        attempt,
+      );
+      attemptedSlugs.add(slug);
+      try {
+        return await createRecord(slug);
+      } catch (error) {
+        if (
+          error instanceof Prisma.PrismaClientKnownRequestError &&
+          error.code === 'P2002' &&
+          !this.isNonSlugUniqueConflict(error)
+        ) {
+          lastError = error;
+          continue;
+        }
+        throw error;
+      }
+    }
+    if (lastError instanceof Prisma.PrismaClientKnownRequestError) {
+      throw new ConflictException(
+        'Could not reserve a unique URL identifier right now. Please try again.',
+      );
+    }
+    throw lastError;
+  }
+
+  async createEventType(dto: CreateEventTypeDto) {
+    const rawSource = dto.slug?.trim() || dto.name;
+    return this.createWithUniqueSlug(
+      rawSource,
+      'category',
+      async (candidate) => {
+        if (typeof this.prisma.eventType.findUnique !== 'function') return false;
+        const existing = await this.prisma.eventType.findUnique({
+          where: { slug: candidate },
+          select: { id: true },
+        });
+        return Boolean(existing);
+      },
+      (uniqueSlug) =>
+        this.prisma.eventType.create({
+          data: {
+            name: dto.name.trim(),
+            slug: uniqueSlug,
+            description: dto.description,
+          },
+        }),
+    );
   }
 
   async listEventTypes() {
@@ -150,42 +391,82 @@ export class CatalogService {
   }
 
   async createPackage(dto: CreatePackageDto) {
-    await this.assertEventTypeExists(dto.eventTypeId);
+    await this.assertEventTypeExists(dto.eventTypeId ?? undefined);
     const serviceIds = (dto.items ?? [])
       .map((i) => i.serviceItemId)
       .filter((id): id is string => Boolean(id));
     await this.assertServiceItemsExist(serviceIds);
 
-    const created = await this.prisma.package.create({
-      data: {
-        eventTypeId: dto.eventTypeId ?? null,
-        name: dto.name.trim(),
-        slug: dto.slug.trim().toLowerCase(),
-        description: dto.description,
-        basePricePoisha: toPoisha(dto.basePricePoisha),
-        isPublished: dto.isPublished ?? false,
-        items: dto.items
-          ? {
-              create: dto.items.map((item) => ({
-                serviceItemId: item.serviceItemId ?? null,
-                description: item.description.trim(),
-                quantity: item.quantity,
-                unitPricePoisha: toPoisha(item.unitPricePoisha),
-              })),
-            }
-          : undefined,
+    const coverData = this.normalizePackageCoverInput(dto);
+    const normalizedItems = this.normalizePackageItemsInput(dto.items);
+    const rawSlugSource = dto.slug?.trim() || dto.name;
+
+    const created = await this.createWithUniqueSlug(
+      rawSlugSource,
+      'package',
+      async (candidate) => {
+        if (typeof this.prisma.package.findUnique !== 'function') return false;
+        const existing = await this.prisma.package.findUnique({
+          where: { slug: candidate },
+          select: { id: true },
+        });
+        return Boolean(existing);
       },
-      include: { items: true },
-    });
+      (uniqueSlug) =>
+        this.prisma.package.create({
+          data: {
+            eventTypeId: dto.eventTypeId ?? null,
+            name: dto.name.trim(),
+            slug: uniqueSlug,
+            description: dto.description?.trim() || null,
+            basePricePoisha: toPoisha(dto.basePricePoisha),
+            ...coverData,
+            isPublished: dto.isPublished ?? false,
+            items: dto.items
+              ? {
+                  create: normalizedItems,
+                }
+              : undefined,
+          },
+          include: {
+            items: true,
+            eventType: { select: { id: true, name: true, slug: true } },
+          },
+        }),
+    );
     return this.serializePackage(created);
   }
 
+  async getPackageById(packageId: string) {
+    if (!PACKAGE_UUID_REGEX.test(packageId)) {
+      throw new NotFoundException('Package not found');
+    }
+    const pkg = await this.prisma.package.findUnique({
+      where: { id: packageId },
+      include: {
+        items: true,
+        eventType: { select: { id: true, name: true, slug: true } },
+      },
+    });
+    if (!pkg) {
+      throw new NotFoundException('Package not found');
+    }
+    return this.serializePackage(pkg);
+  }
+
   async updatePackage(packageId: string, dto: UpdatePackageDto) {
+    if (!PACKAGE_UUID_REGEX.test(packageId)) {
+      throw new NotFoundException('Package not found');
+    }
     const existing = await this.prisma.package.findUnique({
       where: { id: packageId },
     });
     if (!existing) {
       throw new NotFoundException('Package not found');
+    }
+
+    if (dto.eventTypeId) {
+      await this.assertEventTypeExists(dto.eventTypeId);
     }
 
     if (dto.items) {
@@ -195,38 +476,77 @@ export class CatalogService {
       await this.assertServiceItemsExist(serviceIds);
     }
 
-    const updated = await this.prisma.$transaction(async (tx) => {
-      if (dto.items) {
-        await tx.packageItem.deleteMany({
-          where: { packageId },
-        });
-      }
+    const coverData = this.normalizePackageCoverInput(dto);
+    const normalizedItems = dto.items ? this.normalizePackageItemsInput(dto.items) : undefined;
 
-      return tx.package.update({
-        where: { id: packageId },
-        data: {
-          name: dto.name?.trim(),
-          description: dto.description,
-          basePricePoisha:
-            dto.basePricePoisha !== undefined ? toPoisha(dto.basePricePoisha) : undefined,
-          isActive: dto.isActive,
-          isPublished: dto.isPublished,
-          items: dto.items
-            ? {
-                create: dto.items.map((item) => ({
-                  serviceItemId: item.serviceItemId ?? null,
-                  description: item.description.trim(),
-                  quantity: item.quantity,
-                  unitPricePoisha: toPoisha(item.unitPricePoisha),
-                })),
-              }
-            : undefined,
-        },
-        include: { items: true },
+    let updated;
+    try {
+      updated = await this.prisma.$transaction(async (tx) => {
+        if (dto.items) {
+          await tx.packageItem.deleteMany({
+            where: { packageId },
+          });
+        }
+
+        return tx.package.update({
+          where: { id: packageId },
+          data: {
+            eventTypeId: dto.eventTypeId,
+            name: dto.name?.trim(),
+            slug: dto.slug?.trim().toLowerCase(),
+            description:
+              dto.description !== undefined ? dto.description?.trim() || null : undefined,
+            basePricePoisha:
+              dto.basePricePoisha !== undefined ? toPoisha(dto.basePricePoisha) : undefined,
+            ...coverData,
+            isActive: dto.isActive,
+            isPublished: dto.isPublished,
+            items: normalizedItems
+              ? {
+                  create: normalizedItems,
+                }
+              : undefined,
+          },
+          include: {
+            items: true,
+            eventType: { select: { id: true, name: true, slug: true } },
+          },
+        });
       });
-    });
+    } catch (error) {
+      if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
+        throw new ConflictException(
+          'A package with this URL slug already exists. Choose a different name or customize the slug.',
+        );
+      }
+      throw error;
+    }
+
+    if (
+      coverData &&
+      existing.coverImagePublicId &&
+      existing.coverImagePublicId !== updated.coverImagePublicId
+    ) {
+      void this.cleanupPackageCoverAssetIfUnused(existing.coverImagePublicId);
+    }
 
     return this.serializePackage(updated);
+  }
+
+  private async cleanupPackageCoverAssetIfUnused(publicId: string): Promise<void> {
+    const config = loadCloudinaryConfig();
+    if (!getCloudinaryStatus(config).configured) return;
+    try {
+      const [pkgRefs, mediaRefs] = await Promise.all([
+        this.prisma.package.count({ where: { coverImagePublicId: publicId } }),
+        this.prisma.portfolioMedia.count({ where: { publicId } }),
+      ]);
+      if (pkgRefs + mediaRefs === 0) {
+        await destroyCloudinaryAsset(config, publicId, 'IMAGE');
+      }
+    } catch {
+      // Best-effort cleanup
+    }
   }
 
   async listPackages(query: PaginationQueryDto) {
@@ -520,32 +840,65 @@ export class CatalogService {
 
   async createPortfolioEvent(dto: CreatePortfolioEventDto) {
     await this.assertEventTypeExists(dto.eventTypeId);
-    const normalizedSlug = dto.slug.trim().toLowerCase();
+    const requestedSlug = dto.slug?.trim().toLowerCase() || '';
 
-    const existingSlug = await this.prisma.portfolioEvent.findUnique({
-      where: { slug: normalizedSlug },
-      select: { id: true },
-    });
-    if (existingSlug) {
-      throw new ConflictException(`A portfolio showcase event with slug "${normalizedSlug}" already exists.`);
+    const include = {
+      eventType: { select: { id: true, name: true, slug: true } },
+      coverMedia: true,
+      media: { orderBy: [{ displayOrder: 'asc' as const }, { createdAt: 'asc' as const }] },
+    };
+
+    if (requestedSlug && CatalogService.SYSTEM_PORTFOLIO_SLUGS.has(requestedSlug)) {
+      const existingSlug = await this.prisma.portfolioEvent.findUnique({
+        where: { slug: requestedSlug },
+        select: { id: true },
+      });
+      if (existingSlug) {
+        throw new ConflictException(
+          `A portfolio showcase event with slug "${requestedSlug}" already exists.`,
+        );
+      }
+      const created = await this.prisma.portfolioEvent.create({
+        data: {
+          title: dto.title.trim(),
+          slug: requestedSlug,
+          eventDate: dto.eventDate ? new Date(`${dto.eventDate}T00:00:00.000Z`) : null,
+          description: dto.description?.trim() || null,
+          location: dto.location?.trim() || null,
+          eventTypeId: dto.eventTypeId ?? null,
+          status: PortfolioEventStatus.DRAFT,
+        },
+        include,
+      });
+      return this.serializePortfolioEvent(created);
     }
 
-    const created = await this.prisma.portfolioEvent.create({
-      data: {
-        title: dto.title.trim(),
-        slug: normalizedSlug,
-        eventDate: dto.eventDate ? new Date(`${dto.eventDate}T00:00:00.000Z`) : null,
-        description: dto.description?.trim() || null,
-        location: dto.location?.trim() || null,
-        eventTypeId: dto.eventTypeId ?? null,
-        status: PortfolioEventStatus.DRAFT,
+    const created = await this.createWithUniqueSlug(
+      requestedSlug || dto.title,
+      'album',
+      async (candidate) => {
+        if (CatalogService.SYSTEM_PORTFOLIO_SLUGS.has(candidate)) return true;
+        if (typeof this.prisma.portfolioEvent.findUnique !== 'function') return false;
+        const existing = await this.prisma.portfolioEvent.findUnique({
+          where: { slug: candidate },
+          select: { id: true },
+        });
+        return Boolean(existing);
       },
-      include: {
-        eventType: { select: { id: true, name: true, slug: true } },
-        coverMedia: true,
-        media: { orderBy: [{ displayOrder: 'asc' }, { createdAt: 'asc' }] },
-      },
-    });
+      (uniqueSlug) =>
+        this.prisma.portfolioEvent.create({
+          data: {
+            title: dto.title.trim(),
+            slug: uniqueSlug,
+            eventDate: dto.eventDate ? new Date(`${dto.eventDate}T00:00:00.000Z`) : null,
+            description: dto.description?.trim() || null,
+            location: dto.location?.trim() || null,
+            eventTypeId: dto.eventTypeId ?? null,
+            status: PortfolioEventStatus.DRAFT,
+          },
+          include,
+        }),
+    );
 
     return this.serializePortfolioEvent(created);
   }

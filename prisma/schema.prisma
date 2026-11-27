@@ -235,22 +235,30 @@ model ServiceItem {
 }
 
 model Package {
-  id              String   @id @default(uuid()) @db.Uuid
-  eventTypeId     String?  @map("event_type_id") @db.Uuid
-  name            String
-  slug            String   @unique
-  description     String?
-  basePricePoisha BigInt   @map("base_price_poisha")
-  isActive        Boolean  @default(true) @map("is_active")
-  isPublished     Boolean  @default(false) @map("is_published")
-  createdAt       DateTime @default(now()) @map("created_at")
-  updatedAt       DateTime @updatedAt @map("updated_at")
+  id                 String   @id @default(uuid()) @db.Uuid
+  eventTypeId        String?  @map("event_type_id") @db.Uuid
+  name               String
+  slug               String   @unique
+  description        String?
+  basePricePoisha    BigInt   @map("base_price_poisha")
+  coverImageUrl      String?  @map("cover_image_url")
+  coverImageAssetId  String?  @map("cover_image_asset_id")
+  coverImagePublicId String?  @map("cover_image_public_id")
+  coverImageFormat   String?  @map("cover_image_format")
+  coverImageBytes    Int?     @map("cover_image_bytes")
+  coverImageWidth    Int?     @map("cover_image_width")
+  coverImageHeight   Int?     @map("cover_image_height")
+  isActive           Boolean  @default(true) @map("is_active")
+  isPublished        Boolean  @default(false) @map("is_published")
+  createdAt          DateTime @default(now()) @map("created_at")
+  updatedAt          DateTime @updatedAt @map("updated_at")
 
   eventType EventType?    @relation(fields: [eventTypeId], references: [id], onDelete: SetNull)
   items     PackageItem[]
   inquiries Inquiry[]
 
   @@index([isPublished, isActive])
+  @@index([coverImagePublicId])
   @@map("packages")
 }
 
