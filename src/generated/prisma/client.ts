@@ -176,3 +176,23 @@ export type Assignment = Prisma.AssignmentModel
  * 
  */
 export type Deliverable = Prisma.DeliverableModel
+/**
+ * Model ClientReview
+ * 
+ */
+export type ClientReview = Prisma.ClientReviewModel
+/**
+ * Model StudioServiceCard
+ * 
+ */
+export type StudioServiceCard = Prisma.StudioServiceCardModel
+/**
+ * Model StudioAboutProfile
+ * 
+ */
+export type StudioAboutProfile = Prisma.StudioAboutProfileModel
+/**
+ * Model StudioTeamMember
+ * 
+ */
+export type StudioTeamMember = Prisma.StudioTeamMemberModel

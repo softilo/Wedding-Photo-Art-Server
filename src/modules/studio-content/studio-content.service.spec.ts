@@ -242,5 +242,66 @@ describe('StudioContentModule (Services & About Team DB + Gallery Isolation)', (
         data: { status: 'ARCHIVED' },
       });
     });
+
+    it('persists milestones & careerRoles in DB and avoids static frontend image paths in default team reset', async () => {
+      const executeMock = vi.fn().mockResolvedValue(1);
+      const insertedMemberIds: string[] = [];
+      const queryMock = vi.fn().mockImplementation(async (sql: string) => {
+        if (sql.includes('COUNT(*) AS "total"')) return [{ total: 1n }];
+        if (sql.includes('SELECT "id", "services_section_enabled"')) {
+          return [
+            {
+              id: 'default',
+              services_section_enabled: true,
+              story_eyebrow: 'Est. 2015',
+              story_title: 'Our Craft',
+              story_lead: 'Lead copy',
+              story_body: 'Body copy',
+              milestones: [{ label: 'Years', target: 10, suffix: '+', startFrom: 0 }],
+              career_roles: [
+                { title: 'Colorist', type: 'Full-Time', summary: 'DaVinci Resolve grading' },
+              ],
+              updated_at: new Date('2026-11-27T10:00:00Z'),
+            },
+          ];
+        }
+        if (sql.includes('SELECT "id", "image_public_id"')) return [];
+        if (sql.includes('SELECT "milestones", "career_roles"')) {
+          return [{ milestones: null, career_roles: null }];
+        }
+        if (sql.includes('INSERT INTO "studio_team_members"')) {
+          const id = `member-uuid-${insertedMemberIds.length + 1}`;
+          insertedMemberIds.push(id);
+          return [{ id }];
+        }
+        return [];
+      });
+
+      const prismaMock = {
+        $queryRawUnsafe: queryMock,
+        $executeRawUnsafe: executeMock,
+        studioSettings: {
+          findUnique: vi.fn().mockResolvedValue({ name: 'Softilo Studio' }),
+        },
+      };
+
+      const service = new StudioContentService(prismaMock as never);
+      const result = await service.resetAboutTeamDefaults();
+
+      // Default team member no longer points to static /brand/founder-portrait.jpg frontend asset
+      const memberInsertCalls = queryMock.mock.calls.filter(
+        (call) => typeof call[0] === 'string' && call[0].includes('INSERT INTO "studio_team_members"'),
+      );
+      expect(memberInsertCalls.length).toBeGreaterThanOrEqual(1);
+      expect(memberInsertCalls[0]?.[11]).toBeNull();
+
+      // Profile includes DB-backed milestones & careerRoles
+      expect(result.profile.milestones).toEqual([
+        { label: 'Years', target: 10, suffix: '+', startFrom: 0 },
+      ]);
+      expect(result.profile.careerRoles).toEqual([
+        { title: 'Colorist', type: 'Full-Time', summary: 'DaVinci Resolve grading' },
+      ]);
+    });
   });
 });

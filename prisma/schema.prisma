@@ -752,6 +752,8 @@ model StudioAboutProfile {
   storyTitle             String   @map("story_title")
   storyLead              String   @map("story_lead")
   storyBody              String   @map("story_body")
+  milestones             Json?    @map("milestones")
+  careerRoles            Json?    @map("career_roles")
   updatedAt              DateTime @updatedAt @map("updated_at")
 
   @@map("studio_about_profile")

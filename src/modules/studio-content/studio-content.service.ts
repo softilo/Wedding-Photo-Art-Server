@@ -52,6 +52,8 @@ interface RawStudioAboutProfileRow {
   story_title: string;
   story_lead: string;
   story_body: string;
+  milestones: unknown;
+  career_roles: unknown;
   updated_at: Date;
 }
 
@@ -106,11 +108,26 @@ export interface SerializedStudioService {
   updatedAt: string;
 }
 
+export interface StudioMilestoneItem {
+  label: string;
+  target: number;
+  suffix: string;
+  startFrom: number;
+}
+
+export interface StudioCareerRoleItem {
+  title: string;
+  type: string;
+  summary: string;
+}
+
 export interface SerializedStudioAboutProfile {
   storyEyebrow: string;
   storyTitle: string;
   storyLead: string;
   storyBody: string;
+  milestones: StudioMilestoneItem[];
+  careerRoles: StudioCareerRoleItem[];
   servicesSectionEnabled: boolean;
   updatedAt: string;
 }
@@ -182,9 +199,13 @@ const CREATE_STUDIO_CONTENT_DDL = [
     "story_title" TEXT NOT NULL,
     "story_lead" TEXT NOT NULL,
     "story_body" TEXT NOT NULL,
+    "milestones" JSONB,
+    "career_roles" JSONB,
     "updated_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT "studio_about_profile_pkey" PRIMARY KEY ("id")
   )`,
+  `ALTER TABLE "studio_about_profile" ADD COLUMN IF NOT EXISTS "milestones" JSONB`,
+  `ALTER TABLE "studio_about_profile" ADD COLUMN IF NOT EXISTS "career_roles" JSONB`,
   `CREATE TABLE IF NOT EXISTS "studio_team_members" (
     "id" UUID NOT NULL DEFAULT gen_random_uuid(),
     "name" TEXT NOT NULL,
@@ -221,7 +242,11 @@ function isMissingContentTableError(err: unknown): boolean {
   const message = (err as Error)?.message ?? String(err);
   return (
     message.includes('42P01') ||
+    message.includes('42703') ||
     /relation\s+"?(studio_services|studio_about_profile|studio_team_members)"?\s+does not exist/i.test(
+      message,
+    ) ||
+    /column\s+"?(milestones|career_roles)"?\s+(?:of relation\s+"?studio_about_profile"?\s+)?does not exist/i.test(
       message,
     )
   );
@@ -271,6 +296,70 @@ function buildDefaultServicesData(studioName: string) {
   ];
 }
 
+function buildDefaultMilestones(): StudioMilestoneItem[] {
+  return [
+    { label: 'Since', target: 2015, suffix: '', startFrom: 1995 },
+    { label: 'Events', target: 1500, suffix: '+', startFrom: 0 },
+    { label: 'Photos', target: 80, suffix: 'k+', startFrom: 0 },
+    { label: 'Clients', target: 40, suffix: 'k+', startFrom: 0 },
+  ];
+}
+
+function buildDefaultCareerRoles(studioName = 'Studio'): StudioCareerRoleItem[] {
+  return [
+    {
+      title: 'Lead & Associate Wedding Photographer',
+      type: 'Full-Time / Event Crew',
+      summary: `Documentary bridal portraiture, cultural ceremony storytelling, candid guest moments, and natural-light composition with ${studioName}.`,
+    },
+    {
+      title: 'Wedding Cinematographer',
+      type: 'Full-Time / Project Basis',
+      summary:
+        'Multi-camera ceremony filmmaking, gimbal movement, audio capture, and narrative highlight shooting.',
+    },
+    {
+      title: 'Photo Retoucher & Highlight Film Editor',
+      type: 'Studio / Hybrid',
+      summary:
+        'True-to-life color grading, digital album curation, and narrative wedding highlight film pacing.',
+    },
+  ];
+}
+
+function normalizeMilestones(raw: unknown): StudioMilestoneItem[] {
+  if (!Array.isArray(raw)) {
+    return buildDefaultMilestones();
+  }
+  return raw
+    .filter((item): item is Record<string, unknown> => Boolean(item && typeof item === 'object'))
+    .map((item) => {
+      const targetNum = Number(item.target);
+      const startNum = Number(item.startFrom ?? 0);
+      return {
+        label: typeof item.label === 'string' ? item.label.trim().slice(0, 40) : '',
+        target: Number.isFinite(targetNum) ? Math.max(0, Math.round(targetNum)) : 0,
+        suffix: typeof item.suffix === 'string' ? item.suffix.trim().slice(0, 16) : '',
+        startFrom: Number.isFinite(startNum) ? Math.max(0, Math.round(startNum)) : 0,
+      };
+    })
+    .filter((item) => item.label.length > 0);
+}
+
+function normalizeCareerRoles(raw: unknown, studioName: string): StudioCareerRoleItem[] {
+  if (!Array.isArray(raw)) {
+    return buildDefaultCareerRoles(studioName);
+  }
+  return raw
+    .filter((item): item is Record<string, unknown> => Boolean(item && typeof item === 'object'))
+    .map((item) => ({
+      title: typeof item.title === 'string' ? item.title.trim().slice(0, 120) : '',
+      type: typeof item.type === 'string' ? item.type.trim().slice(0, 120) : '',
+      summary: typeof item.summary === 'string' ? item.summary.trim().slice(0, 500) : '',
+    }))
+    .filter((item) => item.title.length > 0);
+}
+
 function buildDefaultAboutProfileData(studioName: string) {
   return {
     storyEyebrow: 'Est. 2015 • Feni, Bangladesh',
@@ -278,6 +367,8 @@ function buildDefaultAboutProfileData(studioName: string) {
     storyLead: `${studioName} is a collective of dedicated photographers, cinematographers, and visual editors devoted to honest emotion, refined light, and true-to-life color.`,
     storyBody:
       'Founded in 2015 in Feni, our studio grew around a simple conviction: wedding photographs should feel effortless, dignified, and deeply personal decades after your celebration. From vibrant Holud evenings to quiet bridal portraits and 4K highlight cinema, our in-house crew works together with calm precision.',
+    milestones: buildDefaultMilestones(),
+    careerRoles: buildDefaultCareerRoles(studioName),
   };
 }
 
@@ -288,14 +379,14 @@ function buildDefaultTeamMembersData(studioName: string) {
       subtitle: 'আলোকচিত্রকর • ফটো সাংবাদিক',
       role: 'Founder, Owner & Lead Photographer',
       specialty: 'Photographer • Cinematography • Photo Editor • Event Planner',
-      bio: `Founder & principal storyteller at ${studioName} in Feni since 2015. Working as a photojournalist, photographer, cinematographer, and photo editor, personally directing bridal portraiture, soulful ceremonies, and heirloom wedding cinema across Bangladesh.`,
+      bio: `Founder & principal storyteller at ${studioName} since 2015. Working as a photojournalist, photographer, cinematographer, and photo editor, personally directing bridal portraiture, soulful ceremonies, and heirloom wedding cinema.`,
       quote:
         'Every photograph should feel as honest and moving thirty years from now as the day your vows were spoken.',
       phone: '+880 1855-585601',
       instagram: 'mdshahadathossainbhuiyan',
       location: 'Feni, Bangladesh',
       isFeatured: true,
-      imageUrl: '/brand/founder-portrait.jpg',
+      imageUrl: null,
       isActive: true,
     },
     {
@@ -404,12 +495,17 @@ export class StudioContentService {
     };
   }
 
-  private serializeAboutProfile(row: RawStudioAboutProfileRow): SerializedStudioAboutProfile {
+  private serializeAboutProfile(
+    row: RawStudioAboutProfileRow,
+    studioName = 'Studio',
+  ): SerializedStudioAboutProfile {
     return {
       storyEyebrow: row.story_eyebrow,
       storyTitle: row.story_title,
       storyLead: row.story_lead,
       storyBody: row.story_body,
+      milestones: normalizeMilestones(row.milestones),
+      careerRoles: normalizeCareerRoles(row.career_roles, studioName),
       servicesSectionEnabled: row.services_section_enabled,
       updatedAt:
         row.updated_at instanceof Date ? row.updated_at.toISOString() : String(row.updated_at),
@@ -531,7 +627,7 @@ export class StudioContentService {
           `SELECT COUNT(*) AS "total" FROM "studio_services"`,
         ),
         this.prisma.$queryRawUnsafe<RawStudioAboutProfileRow[]>(
-          `SELECT "id", "services_section_enabled", "story_eyebrow", "story_title", "story_lead", "story_body", "updated_at" FROM "studio_about_profile" WHERE "id" = 'default' LIMIT 1`,
+          `SELECT "id", "services_section_enabled", "story_eyebrow", "story_title", "story_lead", "story_body", "milestones", "career_roles", "updated_at" FROM "studio_about_profile" WHERE "id" = 'default' LIMIT 1`,
         ),
         this.prisma.$queryRawUnsafe<Array<{ total: bigint }>>(
           `SELECT COUNT(*) AS "total" FROM "studio_team_members"`,
@@ -673,9 +769,9 @@ export class StudioContentService {
 
         await this.prisma.$executeRawUnsafe(
           `INSERT INTO "studio_about_profile" (
-            "id", "services_section_enabled", "story_eyebrow", "story_title", "story_lead", "story_body"
+            "id", "services_section_enabled", "story_eyebrow", "story_title", "story_lead", "story_body", "milestones", "career_roles"
           )
-          VALUES ('default', $1, $2, $3, $4, $5)
+          VALUES ('default', $1, $2, $3, $4, $5, $6::jsonb, $7::jsonb)
           ON CONFLICT ("id") DO UPDATE SET
             "services_section_enabled" = EXCLUDED."services_section_enabled"`,
           legacyServicesEnabled,
@@ -683,6 +779,8 @@ export class StudioContentService {
           title,
           lead,
           body,
+          JSON.stringify(defaultsProfile.milestones),
+          JSON.stringify(defaultsProfile.careerRoles),
         );
       }
 
@@ -1074,24 +1172,28 @@ export class StudioContentService {
 
   async listPublicAboutTeam() {
     await this.ensureInitialized();
-    const [profileRows, memberRows] = await Promise.all([
-      this.prisma.$queryRawUnsafe<RawStudioAboutProfileRow[]>(
-        `SELECT "id", "services_section_enabled", "story_eyebrow", "story_title", "story_lead", "story_body", "updated_at" FROM "studio_about_profile" WHERE "id" = 'default' LIMIT 1`,
+    const [profileRows, memberRows, studioName] = await Promise.all([
+      this.withTables(() =>
+        this.prisma.$queryRawUnsafe<RawStudioAboutProfileRow[]>(
+          `SELECT "id", "services_section_enabled", "story_eyebrow", "story_title", "story_lead", "story_body", "milestones", "career_roles", "updated_at" FROM "studio_about_profile" WHERE "id" = 'default' LIMIT 1`,
+        ),
       ),
-      this.prisma.$queryRawUnsafe<RawStudioTeamMemberRow[]>(
-        `SELECT ${TEAM_COLUMNS_SQL}
-         FROM "studio_team_members"
-         WHERE "is_active" = true
-         ORDER BY "is_featured" DESC, "sort_order" ASC, "created_at" ASC`,
+      this.withTables(() =>
+        this.prisma.$queryRawUnsafe<RawStudioTeamMemberRow[]>(
+          `SELECT ${TEAM_COLUMNS_SQL}
+           FROM "studio_team_members"
+           WHERE "is_active" = true
+           ORDER BY "is_featured" DESC, "sort_order" ASC, "created_at" ASC`,
+        ),
       ),
+      this.resolveStudioDisplayName(),
     ]);
 
-    const studioName = await this.resolveStudioDisplayName();
     const fallbackProfile = buildDefaultAboutProfileData(studioName);
 
     return {
       profile: profileRows[0]
-        ? this.serializeAboutProfile(profileRows[0])
+        ? this.serializeAboutProfile(profileRows[0], studioName)
         : {
             ...fallbackProfile,
             servicesSectionEnabled: true,
@@ -1103,23 +1205,27 @@ export class StudioContentService {
 
   async listAdminAboutTeam() {
     await this.ensureInitialized();
-    const [profileRows, memberRows] = await Promise.all([
-      this.prisma.$queryRawUnsafe<RawStudioAboutProfileRow[]>(
-        `SELECT "id", "services_section_enabled", "story_eyebrow", "story_title", "story_lead", "story_body", "updated_at" FROM "studio_about_profile" WHERE "id" = 'default' LIMIT 1`,
+    const [profileRows, memberRows, studioName] = await Promise.all([
+      this.withTables(() =>
+        this.prisma.$queryRawUnsafe<RawStudioAboutProfileRow[]>(
+          `SELECT "id", "services_section_enabled", "story_eyebrow", "story_title", "story_lead", "story_body", "milestones", "career_roles", "updated_at" FROM "studio_about_profile" WHERE "id" = 'default' LIMIT 1`,
+        ),
       ),
-      this.prisma.$queryRawUnsafe<RawStudioTeamMemberRow[]>(
-        `SELECT ${TEAM_COLUMNS_SQL}
-         FROM "studio_team_members"
-         ORDER BY "sort_order" ASC, "created_at" ASC`,
+      this.withTables(() =>
+        this.prisma.$queryRawUnsafe<RawStudioTeamMemberRow[]>(
+          `SELECT ${TEAM_COLUMNS_SQL}
+           FROM "studio_team_members"
+           ORDER BY "sort_order" ASC, "created_at" ASC`,
+        ),
       ),
+      this.resolveStudioDisplayName(),
     ]);
 
-    const studioName = await this.resolveStudioDisplayName();
     const fallbackProfile = buildDefaultAboutProfileData(studioName);
 
     return {
       profile: profileRows[0]
-        ? this.serializeAboutProfile(profileRows[0])
+        ? this.serializeAboutProfile(profileRows[0], studioName)
         : {
             ...fallbackProfile,
             servicesSectionEnabled: true,
@@ -1137,28 +1243,54 @@ export class StudioContentService {
       await this.validateSectionImageInput(TEAM_CLOUDINARY_SCOPE, member);
     }
 
-    const prevRows = await this.prisma.$queryRawUnsafe<
-      Array<{ id: string; image_public_id: string | null }>
-    >(`SELECT "id", "image_public_id" FROM "studio_team_members"`);
+    const [prevRows, existingProfileRows, studioName] = await Promise.all([
+      this.prisma.$queryRawUnsafe<Array<{ id: string; image_public_id: string | null }>>(
+        `SELECT "id", "image_public_id" FROM "studio_team_members"`,
+      ),
+      this.prisma.$queryRawUnsafe<Array<{ milestones: unknown; career_roles: unknown }>>(
+        `SELECT "milestones", "career_roles" FROM "studio_about_profile" WHERE "id" = 'default' LIMIT 1`,
+      ),
+      this.resolveStudioDisplayName(),
+    ]);
     const prevPublicIds = prevRows
       .map((r) => r.image_public_id)
       .filter((p): p is string => Boolean(p));
 
+    const defaults = buildDefaultAboutProfileData(studioName);
+    const milestonesToSave =
+      dto.profile.milestones !== undefined
+        ? normalizeMilestones(dto.profile.milestones)
+        : existingProfileRows[0]?.milestones !== undefined &&
+            existingProfileRows[0]?.milestones !== null
+          ? normalizeMilestones(existingProfileRows[0].milestones)
+          : defaults.milestones;
+    const careerRolesToSave =
+      dto.profile.careerRoles !== undefined
+        ? normalizeCareerRoles(dto.profile.careerRoles, studioName)
+        : existingProfileRows[0]?.career_roles !== undefined &&
+            existingProfileRows[0]?.career_roles !== null
+          ? normalizeCareerRoles(existingProfileRows[0].career_roles, studioName)
+          : defaults.careerRoles;
+
     await this.prisma.$executeRawUnsafe(
       `INSERT INTO "studio_about_profile" (
-        "id", "story_eyebrow", "story_title", "story_lead", "story_body", "updated_at"
+        "id", "story_eyebrow", "story_title", "story_lead", "story_body", "milestones", "career_roles", "updated_at"
       )
-      VALUES ('default', $1, $2, $3, $4, NOW())
+      VALUES ('default', $1, $2, $3, $4, $5::jsonb, $6::jsonb, NOW())
       ON CONFLICT ("id") DO UPDATE SET
         "story_eyebrow" = EXCLUDED."story_eyebrow",
         "story_title" = EXCLUDED."story_title",
         "story_lead" = EXCLUDED."story_lead",
         "story_body" = EXCLUDED."story_body",
+        "milestones" = EXCLUDED."milestones",
+        "career_roles" = EXCLUDED."career_roles",
         "updated_at" = NOW()`,
       dto.profile.storyEyebrow.trim(),
       dto.profile.storyTitle.trim(),
       dto.profile.storyLead.trim(),
       dto.profile.storyBody.trim(),
+      JSON.stringify(milestonesToSave),
+      JSON.stringify(careerRolesToSave),
     );
 
     const hasExplicitFeatured = dto.members.some((m) => m.isFeatured && (m.isActive ?? true));

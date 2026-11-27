@@ -77,7 +77,11 @@ export const ModelName = {
   PriceAdjustment: 'PriceAdjustment',
   AuditLog: 'AuditLog',
   Assignment: 'Assignment',
-  Deliverable: 'Deliverable'
+  Deliverable: 'Deliverable',
+  ClientReview: 'ClientReview',
+  StudioServiceCard: 'StudioServiceCard',
+  StudioAboutProfile: 'StudioAboutProfile',
+  StudioTeamMember: 'StudioTeamMember'
 } as const
 
 export type ModelName = (typeof ModelName)[keyof typeof ModelName]
@@ -539,6 +543,93 @@ export const DeliverableScalarFieldEnum = {
 } as const
 
 export type DeliverableScalarFieldEnum = (typeof DeliverableScalarFieldEnum)[keyof typeof DeliverableScalarFieldEnum]
+
+
+export const ClientReviewScalarFieldEnum = {
+  id: 'id',
+  clientName: 'clientName',
+  quote: 'quote',
+  rating: 'rating',
+  eventTitle: 'eventTitle',
+  sourceLabel: 'sourceLabel',
+  imageUrl: 'imageUrl',
+  imageAssetId: 'imageAssetId',
+  imagePublicId: 'imagePublicId',
+  imageFormat: 'imageFormat',
+  imageBytes: 'imageBytes',
+  imageWidth: 'imageWidth',
+  imageHeight: 'imageHeight',
+  isPublished: 'isPublished',
+  sortOrder: 'sortOrder',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+} as const
+
+export type ClientReviewScalarFieldEnum = (typeof ClientReviewScalarFieldEnum)[keyof typeof ClientReviewScalarFieldEnum]
+
+
+export const StudioServiceCardScalarFieldEnum = {
+  id: 'id',
+  title: 'title',
+  description: 'description',
+  imageUrl: 'imageUrl',
+  imageAssetId: 'imageAssetId',
+  imagePublicId: 'imagePublicId',
+  imageFormat: 'imageFormat',
+  imageBytes: 'imageBytes',
+  imageWidth: 'imageWidth',
+  imageHeight: 'imageHeight',
+  showOnHome: 'showOnHome',
+  isActive: 'isActive',
+  sortOrder: 'sortOrder',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+} as const
+
+export type StudioServiceCardScalarFieldEnum = (typeof StudioServiceCardScalarFieldEnum)[keyof typeof StudioServiceCardScalarFieldEnum]
+
+
+export const StudioAboutProfileScalarFieldEnum = {
+  id: 'id',
+  servicesSectionEnabled: 'servicesSectionEnabled',
+  storyEyebrow: 'storyEyebrow',
+  storyTitle: 'storyTitle',
+  storyLead: 'storyLead',
+  storyBody: 'storyBody',
+  milestones: 'milestones',
+  careerRoles: 'careerRoles',
+  updatedAt: 'updatedAt'
+} as const
+
+export type StudioAboutProfileScalarFieldEnum = (typeof StudioAboutProfileScalarFieldEnum)[keyof typeof StudioAboutProfileScalarFieldEnum]
+
+
+export const StudioTeamMemberScalarFieldEnum = {
+  id: 'id',
+  name: 'name',
+  subtitle: 'subtitle',
+  role: 'role',
+  specialty: 'specialty',
+  bio: 'bio',
+  quote: 'quote',
+  phone: 'phone',
+  instagram: 'instagram',
+  location: 'location',
+  isFeatured: 'isFeatured',
+  imageUrl: 'imageUrl',
+  imageAssetId: 'imageAssetId',
+  imagePublicId: 'imagePublicId',
+  imageFormat: 'imageFormat',
+  imageBytes: 'imageBytes',
+  imageWidth: 'imageWidth',
+  imageHeight: 'imageHeight',
+  isActive: 'isActive',
+  sortOrder: 'sortOrder',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+} as const
+
+export type StudioTeamMemberScalarFieldEnum = (typeof StudioTeamMemberScalarFieldEnum)[keyof typeof StudioTeamMemberScalarFieldEnum]
 
 
 export const SortOrder = {

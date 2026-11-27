@@ -111,6 +111,48 @@ export class SaveStudioServicesBulkDto {
   items!: StudioServiceInputDto[];
 }
 
+export class StudioMilestoneInputDto {
+  @IsString()
+  @MinLength(1)
+  @MaxLength(40)
+  label!: string;
+
+  @Type(() => Number)
+  @IsInt()
+  @Min(0)
+  @Max(10000000)
+  target!: number;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(16)
+  suffix?: string;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(0)
+  @Max(10000000)
+  startFrom?: number;
+}
+
+export class StudioCareerRoleInputDto {
+  @IsString()
+  @MinLength(1)
+  @MaxLength(120)
+  title!: string;
+
+  @IsString()
+  @MinLength(1)
+  @MaxLength(120)
+  type!: string;
+
+  @IsString()
+  @MinLength(1)
+  @MaxLength(500)
+  summary!: string;
+}
+
 export class StudioAboutProfileInputDto {
   @IsString()
   @MinLength(1)
@@ -131,6 +173,18 @@ export class StudioAboutProfileInputDto {
   @MinLength(1)
   @MaxLength(1500)
   storyBody!: string;
+
+  @IsOptional()
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => StudioMilestoneInputDto)
+  milestones?: StudioMilestoneInputDto[];
+
+  @IsOptional()
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => StudioCareerRoleInputDto)
+  careerRoles?: StudioCareerRoleInputDto[];
 }
 
 export class StudioTeamMemberInputDto {

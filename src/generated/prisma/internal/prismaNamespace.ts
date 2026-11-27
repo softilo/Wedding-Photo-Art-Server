@@ -423,7 +423,11 @@ export const ModelName = {
   PriceAdjustment: 'PriceAdjustment',
   AuditLog: 'AuditLog',
   Assignment: 'Assignment',
-  Deliverable: 'Deliverable'
+  Deliverable: 'Deliverable',
+  ClientReview: 'ClientReview',
+  StudioServiceCard: 'StudioServiceCard',
+  StudioAboutProfile: 'StudioAboutProfile',
+  StudioTeamMember: 'StudioTeamMember'
 } as const
 
 export type ModelName = (typeof ModelName)[keyof typeof ModelName]
@@ -439,7 +443,7 @@ export type TypeMap<ExtArgs extends runtime.Types.Extensions.InternalArgs = runt
     omit: GlobalOmitOptions
   }
   meta: {
-    modelProps: "studioSettings" | "sequenceCounter" | "user" | "eventType" | "serviceItem" | "package" | "packageItem" | "portfolioItem" | "portfolioEvent" | "portfolioMedia" | "taskTemplate" | "deliverableLabel" | "inquiry" | "quote" | "quoteVersion" | "quoteLineItem" | "booking" | "expenseEntry" | "resource" | "eventSession" | "resourceReservation" | "scheduleAuditLog" | "paymentEntry" | "priceAdjustment" | "auditLog" | "assignment" | "deliverable"
+    modelProps: "studioSettings" | "sequenceCounter" | "user" | "eventType" | "serviceItem" | "package" | "packageItem" | "portfolioItem" | "portfolioEvent" | "portfolioMedia" | "taskTemplate" | "deliverableLabel" | "inquiry" | "quote" | "quoteVersion" | "quoteLineItem" | "booking" | "expenseEntry" | "resource" | "eventSession" | "resourceReservation" | "scheduleAuditLog" | "paymentEntry" | "priceAdjustment" | "auditLog" | "assignment" | "deliverable" | "clientReview" | "studioServiceCard" | "studioAboutProfile" | "studioTeamMember"
     txIsolationLevel: TransactionIsolationLevel
   }
   model: {
@@ -2441,6 +2445,302 @@ export type TypeMap<ExtArgs extends runtime.Types.Extensions.InternalArgs = runt
         }
       }
     }
+    ClientReview: {
+      payload: Prisma.$ClientReviewPayload<ExtArgs>
+      fields: Prisma.ClientReviewFieldRefs
+      operations: {
+        findUnique: {
+          args: Prisma.ClientReviewFindUniqueArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ClientReviewPayload> | null
+        }
+        findUniqueOrThrow: {
+          args: Prisma.ClientReviewFindUniqueOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ClientReviewPayload>
+        }
+        findFirst: {
+          args: Prisma.ClientReviewFindFirstArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ClientReviewPayload> | null
+        }
+        findFirstOrThrow: {
+          args: Prisma.ClientReviewFindFirstOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ClientReviewPayload>
+        }
+        findMany: {
+          args: Prisma.ClientReviewFindManyArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ClientReviewPayload>[]
+        }
+        create: {
+          args: Prisma.ClientReviewCreateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ClientReviewPayload>
+        }
+        createMany: {
+          args: Prisma.ClientReviewCreateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        createManyAndReturn: {
+          args: Prisma.ClientReviewCreateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ClientReviewPayload>[]
+        }
+        delete: {
+          args: Prisma.ClientReviewDeleteArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ClientReviewPayload>
+        }
+        update: {
+          args: Prisma.ClientReviewUpdateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ClientReviewPayload>
+        }
+        deleteMany: {
+          args: Prisma.ClientReviewDeleteManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateMany: {
+          args: Prisma.ClientReviewUpdateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateManyAndReturn: {
+          args: Prisma.ClientReviewUpdateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ClientReviewPayload>[]
+        }
+        upsert: {
+          args: Prisma.ClientReviewUpsertArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ClientReviewPayload>
+        }
+        aggregate: {
+          args: Prisma.ClientReviewAggregateArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.AggregateClientReview>
+        }
+        groupBy: {
+          args: Prisma.ClientReviewGroupByArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.ClientReviewGroupByOutputType>[]
+        }
+        count: {
+          args: Prisma.ClientReviewCountArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.ClientReviewCountAggregateOutputType> | number
+        }
+      }
+    }
+    StudioServiceCard: {
+      payload: Prisma.$StudioServiceCardPayload<ExtArgs>
+      fields: Prisma.StudioServiceCardFieldRefs
+      operations: {
+        findUnique: {
+          args: Prisma.StudioServiceCardFindUniqueArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$StudioServiceCardPayload> | null
+        }
+        findUniqueOrThrow: {
+          args: Prisma.StudioServiceCardFindUniqueOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$StudioServiceCardPayload>
+        }
+        findFirst: {
+          args: Prisma.StudioServiceCardFindFirstArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$StudioServiceCardPayload> | null
+        }
+        findFirstOrThrow: {
+          args: Prisma.StudioServiceCardFindFirstOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$StudioServiceCardPayload>
+        }
+        findMany: {
+          args: Prisma.StudioServiceCardFindManyArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$StudioServiceCardPayload>[]
+        }
+        create: {
+          args: Prisma.StudioServiceCardCreateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$StudioServiceCardPayload>
+        }
+        createMany: {
+          args: Prisma.StudioServiceCardCreateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        createManyAndReturn: {
+          args: Prisma.StudioServiceCardCreateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$StudioServiceCardPayload>[]
+        }
+        delete: {
+          args: Prisma.StudioServiceCardDeleteArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$StudioServiceCardPayload>
+        }
+        update: {
+          args: Prisma.StudioServiceCardUpdateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$StudioServiceCardPayload>
+        }
+        deleteMany: {
+          args: Prisma.StudioServiceCardDeleteManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateMany: {
+          args: Prisma.StudioServiceCardUpdateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateManyAndReturn: {
+          args: Prisma.StudioServiceCardUpdateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$StudioServiceCardPayload>[]
+        }
+        upsert: {
+          args: Prisma.StudioServiceCardUpsertArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$StudioServiceCardPayload>
+        }
+        aggregate: {
+          args: Prisma.StudioServiceCardAggregateArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.AggregateStudioServiceCard>
+        }
+        groupBy: {
+          args: Prisma.StudioServiceCardGroupByArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.StudioServiceCardGroupByOutputType>[]
+        }
+        count: {
+          args: Prisma.StudioServiceCardCountArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.StudioServiceCardCountAggregateOutputType> | number
+        }
+      }
+    }
+    StudioAboutProfile: {
+      payload: Prisma.$StudioAboutProfilePayload<ExtArgs>
+      fields: Prisma.StudioAboutProfileFieldRefs
+      operations: {
+        findUnique: {
+          args: Prisma.StudioAboutProfileFindUniqueArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$StudioAboutProfilePayload> | null
+        }
+        findUniqueOrThrow: {
+          args: Prisma.StudioAboutProfileFindUniqueOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$StudioAboutProfilePayload>
+        }
+        findFirst: {
+          args: Prisma.StudioAboutProfileFindFirstArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$StudioAboutProfilePayload> | null
+        }
+        findFirstOrThrow: {
+          args: Prisma.StudioAboutProfileFindFirstOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$StudioAboutProfilePayload>
+        }
+        findMany: {
+          args: Prisma.StudioAboutProfileFindManyArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$StudioAboutProfilePayload>[]
+        }
+        create: {
+          args: Prisma.StudioAboutProfileCreateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$StudioAboutProfilePayload>
+        }
+        createMany: {
+          args: Prisma.StudioAboutProfileCreateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        createManyAndReturn: {
+          args: Prisma.StudioAboutProfileCreateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$StudioAboutProfilePayload>[]
+        }
+        delete: {
+          args: Prisma.StudioAboutProfileDeleteArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$StudioAboutProfilePayload>
+        }
+        update: {
+          args: Prisma.StudioAboutProfileUpdateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$StudioAboutProfilePayload>
+        }
+        deleteMany: {
+          args: Prisma.StudioAboutProfileDeleteManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateMany: {
+          args: Prisma.StudioAboutProfileUpdateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateManyAndReturn: {
+          args: Prisma.StudioAboutProfileUpdateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$StudioAboutProfilePayload>[]
+        }
+        upsert: {
+          args: Prisma.StudioAboutProfileUpsertArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$StudioAboutProfilePayload>
+        }
+        aggregate: {
+          args: Prisma.StudioAboutProfileAggregateArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.AggregateStudioAboutProfile>
+        }
+        groupBy: {
+          args: Prisma.StudioAboutProfileGroupByArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.StudioAboutProfileGroupByOutputType>[]
+        }
+        count: {
+          args: Prisma.StudioAboutProfileCountArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.StudioAboutProfileCountAggregateOutputType> | number
+        }
+      }
+    }
+    StudioTeamMember: {
+      payload: Prisma.$StudioTeamMemberPayload<ExtArgs>
+      fields: Prisma.StudioTeamMemberFieldRefs
+      operations: {
+        findUnique: {
+          args: Prisma.StudioTeamMemberFindUniqueArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$StudioTeamMemberPayload> | null
+        }
+        findUniqueOrThrow: {
+          args: Prisma.StudioTeamMemberFindUniqueOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$StudioTeamMemberPayload>
+        }
+        findFirst: {
+          args: Prisma.StudioTeamMemberFindFirstArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$StudioTeamMemberPayload> | null
+        }
+        findFirstOrThrow: {
+          args: Prisma.StudioTeamMemberFindFirstOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$StudioTeamMemberPayload>
+        }
+        findMany: {
+          args: Prisma.StudioTeamMemberFindManyArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$StudioTeamMemberPayload>[]
+        }
+        create: {
+          args: Prisma.StudioTeamMemberCreateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$StudioTeamMemberPayload>
+        }
+        createMany: {
+          args: Prisma.StudioTeamMemberCreateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        createManyAndReturn: {
+          args: Prisma.StudioTeamMemberCreateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$StudioTeamMemberPayload>[]
+        }
+        delete: {
+          args: Prisma.StudioTeamMemberDeleteArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$StudioTeamMemberPayload>
+        }
+        update: {
+          args: Prisma.StudioTeamMemberUpdateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$StudioTeamMemberPayload>
+        }
+        deleteMany: {
+          args: Prisma.StudioTeamMemberDeleteManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateMany: {
+          args: Prisma.StudioTeamMemberUpdateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateManyAndReturn: {
+          args: Prisma.StudioTeamMemberUpdateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$StudioTeamMemberPayload>[]
+        }
+        upsert: {
+          args: Prisma.StudioTeamMemberUpsertArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$StudioTeamMemberPayload>
+        }
+        aggregate: {
+          args: Prisma.StudioTeamMemberAggregateArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.AggregateStudioTeamMember>
+        }
+        groupBy: {
+          args: Prisma.StudioTeamMemberGroupByArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.StudioTeamMemberGroupByOutputType>[]
+        }
+        count: {
+          args: Prisma.StudioTeamMemberCountArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.StudioTeamMemberCountAggregateOutputType> | number
+        }
+      }
+    }
   }
 } & {
   other: {
@@ -2923,6 +3223,93 @@ export const DeliverableScalarFieldEnum = {
 } as const
 
 export type DeliverableScalarFieldEnum = (typeof DeliverableScalarFieldEnum)[keyof typeof DeliverableScalarFieldEnum]
+
+
+export const ClientReviewScalarFieldEnum = {
+  id: 'id',
+  clientName: 'clientName',
+  quote: 'quote',
+  rating: 'rating',
+  eventTitle: 'eventTitle',
+  sourceLabel: 'sourceLabel',
+  imageUrl: 'imageUrl',
+  imageAssetId: 'imageAssetId',
+  imagePublicId: 'imagePublicId',
+  imageFormat: 'imageFormat',
+  imageBytes: 'imageBytes',
+  imageWidth: 'imageWidth',
+  imageHeight: 'imageHeight',
+  isPublished: 'isPublished',
+  sortOrder: 'sortOrder',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+} as const
+
+export type ClientReviewScalarFieldEnum = (typeof ClientReviewScalarFieldEnum)[keyof typeof ClientReviewScalarFieldEnum]
+
+
+export const StudioServiceCardScalarFieldEnum = {
+  id: 'id',
+  title: 'title',
+  description: 'description',
+  imageUrl: 'imageUrl',
+  imageAssetId: 'imageAssetId',
+  imagePublicId: 'imagePublicId',
+  imageFormat: 'imageFormat',
+  imageBytes: 'imageBytes',
+  imageWidth: 'imageWidth',
+  imageHeight: 'imageHeight',
+  showOnHome: 'showOnHome',
+  isActive: 'isActive',
+  sortOrder: 'sortOrder',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+} as const
+
+export type StudioServiceCardScalarFieldEnum = (typeof StudioServiceCardScalarFieldEnum)[keyof typeof StudioServiceCardScalarFieldEnum]
+
+
+export const StudioAboutProfileScalarFieldEnum = {
+  id: 'id',
+  servicesSectionEnabled: 'servicesSectionEnabled',
+  storyEyebrow: 'storyEyebrow',
+  storyTitle: 'storyTitle',
+  storyLead: 'storyLead',
+  storyBody: 'storyBody',
+  milestones: 'milestones',
+  careerRoles: 'careerRoles',
+  updatedAt: 'updatedAt'
+} as const
+
+export type StudioAboutProfileScalarFieldEnum = (typeof StudioAboutProfileScalarFieldEnum)[keyof typeof StudioAboutProfileScalarFieldEnum]
+
+
+export const StudioTeamMemberScalarFieldEnum = {
+  id: 'id',
+  name: 'name',
+  subtitle: 'subtitle',
+  role: 'role',
+  specialty: 'specialty',
+  bio: 'bio',
+  quote: 'quote',
+  phone: 'phone',
+  instagram: 'instagram',
+  location: 'location',
+  isFeatured: 'isFeatured',
+  imageUrl: 'imageUrl',
+  imageAssetId: 'imageAssetId',
+  imagePublicId: 'imagePublicId',
+  imageFormat: 'imageFormat',
+  imageBytes: 'imageBytes',
+  imageWidth: 'imageWidth',
+  imageHeight: 'imageHeight',
+  isActive: 'isActive',
+  sortOrder: 'sortOrder',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+} as const
+
+export type StudioTeamMemberScalarFieldEnum = (typeof StudioTeamMemberScalarFieldEnum)[keyof typeof StudioTeamMemberScalarFieldEnum]
 
 
 export const SortOrder = {
@@ -3534,6 +3921,10 @@ export type GlobalOmitConfig = {
   auditLog?: Prisma.AuditLogOmit
   assignment?: Prisma.AssignmentOmit
   deliverable?: Prisma.DeliverableOmit
+  clientReview?: Prisma.ClientReviewOmit
+  studioServiceCard?: Prisma.StudioServiceCardOmit
+  studioAboutProfile?: Prisma.StudioAboutProfileOmit
+  studioTeamMember?: Prisma.StudioTeamMemberOmit
 }
 
 /* Types for Logging */
